@@ -1,11 +1,13 @@
+// src/components/secretaria/home/turma/CadastroTurma.tsx - COM LISTA FUNCIONAL
+
 'use client';
 
 import React, { useCallback } from "react";
 import { useTurmaForm } from "@/hooks/secretaria/turma";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
 import { SuccessMessage } from "@/components/ui/SuccessMessage";
-import { TurmaDataSection } from "./TurmaDataSection"; // ✅ CORREÇÃO: Import relativo
-import BuscarTurma from "./BuscarTurma";
+import { TurmaDataSection } from "./TurmaDataSection";
+import ListarTurmas from "./BuscarTurma"; // ✅ Novo componente de lista
 import type { TurmaFormProps } from "@/hooks/secretaria/turma";
 
 interface CadastroTurmaProps extends TurmaFormProps {
@@ -148,14 +150,14 @@ export default function CadastroTurma({ onSuccess, onCancel }: CadastroTurmaProp
         </div>
       </section>
 
-      {/* ===== SEÇÃO: BUSCAR TURMA ===== */}
+      {/* ===== SEÇÃO: LISTAR TURMAS ===== */}
       <section 
         className="bg-white rounded-lg shadow-sm border border-gray-200"
-        aria-labelledby="buscar-heading"
+        aria-labelledby="listar-heading"
       >
         <header className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
               <svg 
                 className="w-6 h-6 text-white" 
                 fill="none" 
@@ -167,28 +169,61 @@ export default function CadastroTurma({ onSuccess, onCancel }: CadastroTurmaProp
                   strokeLinecap="round" 
                   strokeLinejoin="round" 
                   strokeWidth={2} 
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" 
+                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" 
                 />
               </svg>
             </div>
             <div>
               <h2 
-                id="buscar-heading"
+                id="listar-heading"
                 className="text-xl font-semibold text-gray-900"
               >
-                Buscar Turma
+                Turmas Cadastradas
               </h2>
               <p className="text-sm text-gray-600 mt-1">
-                Digite o ID da turma para consultar suas informações detalhadas
+                Visualize, filtre e gerencie todas as turmas do sistema
               </p>
             </div>
           </div>
         </header>
         
         <div className="p-6">
-          <BuscarTurma />
+          <ListarTurmas />
         </div>
       </section>
+
+      {/* Loading overlay global para formulário */}
+      {loading && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50"
+          aria-hidden="true"
+        >
+          <div className="bg-white rounded-lg p-6 flex items-center space-x-4 shadow-xl">
+            <svg 
+              className="animate-spin h-6 w-6 text-purple-600" 
+              fill="none" 
+              viewBox="0 0 24 24"
+            >
+              <circle 
+                className="opacity-25" 
+                cx="12" 
+                cy="12" 
+                r="10" 
+                stroke="currentColor" 
+                strokeWidth="4"
+              />
+              <path 
+                className="opacity-75" 
+                fill="currentColor" 
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+            <span className="text-gray-700 font-medium">
+              Processando cadastro da turma...
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,3 +1,5 @@
+// src/components/secretaria/home/turma/BuscarTurma.tsx - SEM LOGS DESNECESSÁRIOS
+
 'use client';
 
 import React from 'react';

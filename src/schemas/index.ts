@@ -1,4 +1,4 @@
-// src/schemas/index.ts - CORRIGIDO PARA SEU BACKEND
+// src/schemas/index.ts - TURMA SCHEMAS CORRIGIDOS PARA SEU BACKEND
 
 import { z } from 'zod';
 
@@ -66,9 +66,14 @@ export const nameValidator = z
   .max(100, 'Nome muito longo')
   .trim();
 
-// ===== ENUM PARA SITUAÇÃO (IGUAL AO BACKEND) =====
+// ===== ENUM PARA SITUAÇÃO =====
 export const SituacaoTypeEnum = z.enum(['ATIVO', 'INATIVO'], {
   errorMap: () => ({ message: 'Situação deve ser ATIVO ou INATIVO' }),
+});
+
+// ✅ ENUM PARA TURNO - IGUAL AO SEU BACKEND TurnoType
+export const TurnoTypeEnum = z.enum(['DIURNO', 'NOTURNO'], {
+  errorMap: () => ({ message: 'Turno deve ser DIURNO ou NOTURNO' }),
 });
 
 // ===== SCHEMAS DE AUTENTICAÇÃO =====
@@ -123,9 +128,7 @@ export const professorDTOSchema = z.object({
   id_secretaria: z.string(),
 });
 
-// ===== SCHEMAS DE CURSO - CORRIGIDOS =====
-
-// Schema do formulário (UI)
+// ===== SCHEMAS DE CURSO =====
 export const cursoFormSchema = z.object({
   nome: z
     .string()
@@ -146,14 +149,12 @@ export const cursoFormSchema = z.object({
     }),
 });
 
-// DTO para criação (POST) - sem situacao pois backend define como ATIVO
 export const cursoDTOSchema = z.object({
   nome: z.string().min(3).max(100),
   duracao: z.number().min(1).max(60),
   id_secretaria: z.string().min(1),
 });
 
-// DTO para edição (PUT situacao) - EXATAMENTE como seu CursoEditarDTO
 export const cursoEditarDTOSchema = z.object({
   nome: z.string().optional(),
   duracao: z.number().optional(), 
@@ -161,16 +162,17 @@ export const cursoEditarDTOSchema = z.object({
   id_secretaria: z.string().optional(),
 });
 
-// Response do backend - EXATAMENTE como seu CursoResponseDTO
 export const cursoResponseSchema = z.object({
-  idCurso: z.string(), // ✅ Seu backend retorna idCurso (não id_curso)
+  idCurso: z.string(),
   nome: z.string(),
   duracao: z.number(),
   situacao: SituacaoTypeEnum,
   id_secretaria: z.string(),
 });
 
-// ===== SCHEMAS DE TURMA =====
+// ===== ✅ SCHEMAS DE TURMA CORRIGIDOS PARA SEU BACKEND =====
+
+// 1. Schema do formulário (tela)
 export const turmaFormSchema = z.object({
   nome: z.string()
     .min(1, 'Nome da turma é obrigatório')
@@ -182,26 +184,24 @@ export const turmaFormSchema = z.object({
     .string()
     .min(1, 'Ano é obrigatório')
     .regex(/^\d{4}$/, 'Ano deve ter 4 dígitos'),
-  turno: z.enum(['DIURNO', 'NOTURNO'], {
-    errorMap: () => ({ message: 'Selecione o turno' }),
-  }),
+  turno: TurnoTypeEnum, // ✅ Usando o enum correto
 });
 
-// DTO para turma (apenas os 3 campos do body)
+// 2. DTO que vai para o backend (apenas nome, ano, turno)
 export const turmaDTOSchema = z.object({
   nome: z.string(),
-  ano: z.string(),
-  turno: z.enum(['DIURNO', 'NOTURNO']),
+  ano: z.string().regex(/^\d{4}$/, 'Ano deve ter 4 dígitos'),
+  turno: TurnoTypeEnum, // ✅ TurnoType do backend
 });
 
+// 3. Response que vem do backend (sem turno!)
 export const turmaResponseSchema = z.object({
-  idTurma: z.union([z.string(), z.number()]).transform(String),
+  idTurma: z.string(),
   nome: z.string(),
   ano: z.string(),
-  idCurso: z.union([z.string(), z.number()]).transform(String),
-  idSecretaria: z.union([z.string(), z.number()]).transform(String),
-  turno: z.enum(['DIURNO', 'NOTURNO']),
-  situacao: z.string().optional().default('ATIVO'),
+  idCurso: z.string(),
+  idSecretaria: z.string(),
+  // ❌ NÃO TEM turno no response do seu backend
   alunos: z.array(z.object({
     idAluno: z.string(),
     nome: z.string(),
@@ -217,16 +217,17 @@ export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 export type ProfessorFormData = z.infer<typeof professorFormSchema>;
 export type ProfessorDTO = z.infer<typeof professorDTOSchema>;
 
-// Tipos de Curso CORRIGIDOS
 export type CursoFormData = z.infer<typeof cursoFormSchema>;
 export type CursoDTO = z.infer<typeof cursoDTOSchema>;
-export type CursoEditarDTO = z.infer<typeof cursoEditarDTOSchema>; // ✅ Novo
+export type CursoEditarDTO = z.infer<typeof cursoEditarDTOSchema>;
 export type CursoResponse = z.infer<typeof cursoResponseSchema>;
 export type SituacaoType = z.infer<typeof SituacaoTypeEnum>;
 
+// ✅ TIPOS DE TURMA CORRIGIDOS
 export type TurmaFormData = z.infer<typeof turmaFormSchema>;
 export type TurmaDTO = z.infer<typeof turmaDTOSchema>;
 export type TurmaResponse = z.infer<typeof turmaResponseSchema>;
+export type TurnoType = z.infer<typeof TurnoTypeEnum>;
 
 // ===== FUNÇÕES DE VALIDAÇÃO =====
 export const validateLoginForm = (data: unknown) => loginSchema.safeParse(data);

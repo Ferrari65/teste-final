@@ -1,15 +1,16 @@
-// src/utils/transformers.ts - VERSÃO CORRIGIDA
+// src/utils/transformers.ts - TRANSFORMERS CORRIGIDOS SEM LOGS
 
 import {
   ProfessorFormData,
   ProfessorDTO,
   CursoFormData,
   CursoDTO,
-  CursoUpdateSituacao,
+  CursoEditarDTO,
   TurmaFormData,
   TurmaDTO,
   cleanCPF,
-  cleanPhone
+  cleanPhone,
+  SituacaoType
 } from '@/schemas';
 
 // ===== PROFESSOR (INALTERADO) =====
@@ -51,14 +52,12 @@ export const transformProfessorFormToDTO = (
   };
 };
 
-// ===== CURSO - CORRIGIDO PARA SUA TABELA =====
+// ===== CURSO =====
 export const transformCursoFormToDTO = (
   data: CursoFormData,
   secretariaId: string
 ): CursoDTO => {
-  console.log('🔄 [CURSO TRANSFORMER] Entrada:', { data, secretariaId });
-
-  // ✅ VALIDAÇÃO DO NOME
+  // Validação do nome
   if (!data.nome || data.nome.trim() === '') {
     throw new Error('Nome do curso é obrigatório');
   }
@@ -71,7 +70,7 @@ export const transformCursoFormToDTO = (
     throw new Error('Nome do curso deve ter no máximo 100 caracteres');
   }
 
-  // ✅ VALIDAÇÃO DA DURAÇÃO
+  // Validação da duração
   let duracao: number;
   if (typeof data.duracao === 'string') {
     duracao = parseInt(data.duracao, 10);
@@ -85,27 +84,22 @@ export const transformCursoFormToDTO = (
     }
   }
 
-  // ✅ VALIDAÇÃO DO ID_SECRETARIA
+  // Validação do ID_SECRETARIA
   if (!secretariaId || secretariaId.trim() === '') {
     throw new Error('ID da secretaria é obrigatório');
   }
 
-  // ✅ RETORNAR DTO CONFORME SEU ENDPOINT POST
-  const dto: CursoDTO = {
+  return {
     nome: data.nome.trim(),
     duracao,
-    situacao: 'ATIVO',
     id_secretaria: secretariaId.trim()
   };
-
-  console.log('✅ [CURSO TRANSFORMER] DTO criado:', dto);
-  return dto;
 };
 
-// ✅ TRANSFORMER PARA ATUALIZAÇÃO DE SITUAÇÃO
+// Transformer para atualização de situação
 export const transformCursoSituacaoUpdate = (
-  situacao: 'ATIVO' | 'INATIVO'
-): CursoUpdateSituacao => {
+  situacao: SituacaoType
+): CursoEditarDTO => {
   if (!situacao || !['ATIVO', 'INATIVO'].includes(situacao)) {
     throw new Error('Situação deve ser ATIVO ou INATIVO');
   }
@@ -113,16 +107,11 @@ export const transformCursoSituacaoUpdate = (
   return { situacao };
 };
 
-// ===== TURMA - SIMPLIFICADO PARA APENAS 3 CAMPOS =====
+// ===== ✅ TURMA - CORRIGIDO PARA SEU BACKEND =====
 export const transformTurmaFormToDTO = (
   data: TurmaFormData
 ): TurmaDTO => {
-  // ✅ VALIDAÇÃO DO ANO
-  if (!data.ano || !/^\d{4}$/.test(data.ano)) {
-    throw new Error('Ano deve ter 4 dígitos (ex: 2024)');
-  }
-
-  // ✅ VALIDAÇÃO DO NOME
+  // Validação do nome
   if (!data.nome || data.nome.trim() === '') {
     throw new Error('Nome da turma é obrigatório');
   }
@@ -135,7 +124,12 @@ export const transformTurmaFormToDTO = (
     throw new Error('Nome da turma deve ter no máximo 100 caracteres');
   }
 
-  // ✅ VALIDAÇÃO DO TURNO
+  // Validação do ano
+  if (!data.ano || !/^\d{4}$/.test(data.ano)) {
+    throw new Error('Ano deve ter 4 dígitos (ex: 2024)');
+  }
+
+  // Validação do turno
   if (!data.turno) {
     throw new Error('Turno é obrigatório');
   }
@@ -145,45 +139,11 @@ export const transformTurmaFormToDTO = (
     throw new Error('Turno deve ser DIURNO ou NOTURNO');
   }
 
-  // ✅ RETORNAR APENAS OS 3 CAMPOS OBRIGATÓRIOS
+  // ✅ RETORNAR APENAS OS 3 CAMPOS QUE SEU BACKEND ESPERA
   return {
     nome: data.nome.trim(),
     ano: data.ano,
-    turno: data.turno
-  };
-};
-
-// ===== VALIDAÇÃO AUXILIAR PARA TURMA =====
-export const validateTurmaData = (
-  data: TurmaFormData,
-  secretariaId: string
-): { isValid: boolean; errors: string[] } => {
-  const errors: string[] = [];
-
-  // Validar dados do formulário
-  try {
-    transformTurmaFormToDTO(data);
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      errors.push(error.message);
-    } else {
-      errors.push('Erro desconhecido na validação');
-    }
-  }
-
-  // Validar secretaria ID
-  if (!secretariaId || secretariaId.trim() === '') {
-    errors.push('ID da secretaria não encontrado');
-  } else {
-    const idSecretaria = parseInt(secretariaId, 10);
-    if (isNaN(idSecretaria) || idSecretaria <= 0) {
-      errors.push('ID da secretaria deve ser um número válido');
-    }
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors
+    turno: data.turno as 'DIURNO' | 'NOTURNO'
   };
 };
 
@@ -223,7 +183,6 @@ export const validateFormData = {
   curso: (data: CursoFormData, secretariaId?: string): string[] => {
     const errors: string[] = [];
 
-    // ✅ VALIDAÇÃO DOS CAMPOS OBRIGATÓRIOS
     if (!data.nome || data.nome.trim() === '') {
       errors.push('Nome do curso é obrigatório');
     } else if (data.nome.trim().length < 3) {
@@ -232,7 +191,6 @@ export const validateFormData = {
       errors.push('Nome do curso deve ter no máximo 100 caracteres');
     }
 
-    // ✅ VALIDAÇÃO DA DURAÇÃO
     if (!data.duracao) {
       errors.push('Duração é obrigatória');
     } else {
@@ -242,7 +200,6 @@ export const validateFormData = {
       }
     }
 
-    // ✅ VALIDAÇÃO DO ID_SECRETARIA (se fornecido)
     if (secretariaId && secretariaId.trim() === '') {
       errors.push('ID da secretaria é obrigatório');
     }
@@ -253,7 +210,6 @@ export const validateFormData = {
   turma: (data: TurmaFormData): string[] => {
     const errors: string[] = [];
 
-    // ✅ VALIDAÇÃO DOS 4 CAMPOS (incluindo curso que será usado na URL)
     const requiredFields = [
       { value: data.nome?.trim(), label: 'Nome da turma' },
       { value: data.id_curso, label: 'Curso' },
@@ -267,12 +223,10 @@ export const validateFormData = {
       }
     });
 
-    // ✅ VALIDAÇÃO ESPECÍFICA DO ANO
     if (data.ano && !/^\d{4}$/.test(data.ano)) {
       errors.push('Ano deve ter 4 dígitos (ex: 2024)');
     }
 
-    // ✅ VALIDAÇÃO ESPECÍFICA DO TURNO
     if (data.turno && !['DIURNO', 'NOTURNO'].includes(data.turno)) {
       errors.push('Turno deve ser DIURNO ou NOTURNO');
     }
@@ -326,8 +280,8 @@ export const formatters = {
 
   turno: (turno: string): string => {
     const turnos = {
-      'DIURNO': 'Diurno',
-      'NOTURNO': 'Noturno'
+      'DIURNO': '🌅 Diurno',
+      'NOTURNO': '🌙 Noturno'
     };
     return turnos[turno as keyof typeof turnos] || turno;
   },

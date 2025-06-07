@@ -1,4 +1,4 @@
-// src/components/secretaria/home/turma/TurmaDataSection.tsx - VERSÃO COMPLETA SEM DEBUG
+// src/components/secretaria/home/turma/TurmaDataSection.tsx - SEM LOGS DESNECESSÁRIOS
 
 'use client';
 
@@ -14,7 +14,7 @@ interface TurmaDataSectionProps {
 export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
   const { register, formState: { errors }, watch } = form;
   
-  // Hook de cursos com tratamento de erro aprimorado
+  // Hook de cursos
   const { cursos, loading: cursosLoading, error: cursosError, refetch, clearError } = useCursoList();
   
   // Observa os valores selecionados
@@ -27,10 +27,10 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
   const cursosValidos = cursos.filter((curso) => {
     if (!curso) return false;
     
-    const hasValidId = curso.id_curso !== undefined && 
-                      curso.id_curso !== null && 
-                      (typeof curso.id_curso === 'number' || 
-                       (typeof curso.id_curso === 'string' && !isNaN(parseInt(curso.id_curso, 10))));
+    const hasValidId = curso.idCurso !== undefined && 
+                      curso.idCurso !== null && 
+                      (typeof curso.idCurso === 'number' || 
+                       (typeof curso.idCurso === 'string' && !isNaN(parseInt(curso.idCurso, 10))));
     
     const hasValidNome = curso.nome && typeof curso.nome === 'string' && curso.nome.trim() !== '';
     const hasValidDuracao = curso.duracao && typeof curso.duracao === 'number' && curso.duracao > 0;
@@ -40,7 +40,7 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
 
   // Buscar curso selecionado
   const cursoDetalhes = cursosValidos.find(curso => 
-    String(curso.id_curso) === String(cursoSelecionado)
+    String(curso.idCurso) === String(cursoSelecionado)
   );
 
   // Handler para recarregar cursos
@@ -69,7 +69,7 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
                 ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
                 : 'border-gray-300 focus:ring-purple-500 focus:border-purple-500'
             }`}
-            placeholder="Ex: Turma ADS 2024-1"
+            placeholder="Ex: Turma ADS 2025-1"
             autoComplete="off"
           />
           {errors.nome && (
@@ -92,7 +92,7 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
                 ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
                 : 'border-gray-300 focus:ring-purple-500 focus:border-purple-500'
             }`}
-            placeholder="Ex: 2024"
+            placeholder="Ex: 2025"
             maxLength={4}
             pattern="\d{4}"
             autoComplete="off"
@@ -172,8 +172,8 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
             {/* Exibir cursos válidos */}
             {!cursosLoading && !cursosError && cursosValidos.map((curso, index) => (
               <option 
-                key={`curso-${curso.id_curso}-${index}`}
-                value={String(curso.id_curso)}
+                key={`curso-${curso.idCurso}-${index}`}
+                value={String(curso.idCurso)}
               >
                 {curso.nome} - {curso.duracao} {curso.duracao === 1 ? 'mês' : 'meses'}
               </option>
@@ -214,7 +214,7 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
             </div>
           )}
 
-          {/* Estatísticas dos cursos carregados */}
+          {/* Estatísticas dos cursos carregados (só se houver diferença) */}
           {!cursosLoading && !cursosError && cursos.length > 0 && cursosValidos.length !== cursos.length && (
             <div className="mt-1 text-xs text-gray-500">
               {cursosValidos.length} de {cursos.length} cursos válidos carregados

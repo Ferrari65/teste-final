@@ -1,4 +1,4 @@
-// src/hooks/secretaria/turma/index.ts - SEM LOGS EXCESSIVOS
+// src/hooks/secretaria/turma/index.ts - HOOKS CORRIGIDOS SEM LOGS EXCESSIVOS
 
 import { useState, useContext, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
@@ -54,6 +54,9 @@ function handleSubmitError(error: unknown): string {
     case 404:
       return 'Endpoint não encontrado. Verifique se o backend está rodando.';
     
+    case 409:
+      return 'Já existe uma turma com esse nome neste curso.';
+    
     case 500:
       return 'Erro interno do servidor. Tente novamente.';
     
@@ -89,7 +92,7 @@ export const useTurmaForm = ({
     setError(null);
   }, []);
 
-  const onSubmit = useCallback(
+        const onSubmit = useCallback(
     async (data: TurmaFormData): Promise<void> => {
       if (!user?.id) {
         setError('ID da secretaria não encontrado. Faça login novamente.');
@@ -105,24 +108,27 @@ export const useTurmaForm = ({
       setError(null);
 
       try {
-        // Usar transformer correto (apenas nome, ano, turno)
+        // ✅ Usar transformer que só retorna nome, ano, turno
         const turmaDTO = transformTurmaFormToDTO(data);
         
         const api = getAPIClient();
         
-        // Endpoint correto + Body apenas com nome, ano, turno
+        // ✅ Endpoint correto do seu backend
         const response = await api.post(
           `/turma/criar/${user.id}/${data.id_curso}`, 
           turmaDTO
         );
 
         setSuccessMessage('Turma cadastrada com sucesso!');
+        
+        // Reset do formulário
         form.reset({
           nome: '',
           id_curso: '',
           ano: new Date().getFullYear().toString(),
           turno: 'DIURNO',
         });
+        
         onSuccess?.();
         
       } catch (error: unknown) {
@@ -184,7 +190,7 @@ export const useTurmaSearch = (): UseTurmaSearchReturn => {
     try {
       const api = getAPIClient();
       
-      // Endpoint para buscar turma específica
+      // ✅ Endpoint para buscar turma específica
       const response = await api.get(`/turma/buscarTurma/${searchId}`);
       
       if (response.data && typeof response.data === 'object') {
