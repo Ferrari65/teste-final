@@ -1,4 +1,4 @@
-// src/hooks/secretaria/curso/index.ts - VERSÃO CORRIGIDA COM ENDPOINTS CORRETOS
+// src/hooks/secretaria/curso/index.ts - COM ATUALIZAÇÃO OTIMISTA
 
 import { useState, useContext, useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -10,7 +10,8 @@ import {
   cursoFormSchema,
   type CursoFormData,
   type CursoResponse,
-  type CursoUpdateSituacao,
+  type CursoEditarDTO,
+  type SituacaoType,
 } from '@/schemas';
 
 // ===== INTERFACES =====
@@ -34,10 +35,13 @@ interface UseCursoListReturn {
   error: string | null;
   refetch: () => void;
   clearError: () => void;
+  // ✅ NOVOS MÉTODOS PARA ATUALIZAÇÃO OTIMISTA
+  updateCursoOptimistic: (cursoId: string, updates: Partial<CursoResponse>) => void;
+  revertCursoOptimistic: (cursoId: string, originalData: CursoResponse) => void;
 }
 
 interface UseCursoActionsReturn {
-  updateSituacao: (cursoId: number, situacao: 'ATIVO' | 'INATIVO') => Promise<void>;
+  updateSituacao: (cursoId: string, situacao: SituacaoType, onOptimisticUpdate?: (revert: () => void) => void) => Promise<void>;
   loading: boolean;
   error: string | null;
   successMessage: string | null;
@@ -51,8 +55,6 @@ interface UseCursoFormOptions {
 
 // ===== HELPER FUNCTIONS =====
 function handleCursoError(error: unknown, context: string): string {
-  console.error(`❌ [CURSO ${context}] Erro:`, error);
-  
   const { message, status } = handleApiError(error, context);
   
   switch (status) {
@@ -88,44 +90,36 @@ function handleCursoError(error: unknown, context: string): string {
   }
 }
 
+// MAPEAR RESPOSTA DO BACKEND PARA FRONTEND
 function mapCursoResponse(curso: any): CursoResponse {
   if (!curso) {
     throw new Error('Dados do curso inválidos');
   }
 
-  // Log para debug
-  console.log('🔍 [MAP CURSO] Dados recebidos:', curso);
+  const idCurso = curso.idCurso;
+  const nome = curso.nome;
+  const duracao = curso.duracao;
+  const id_secretaria = curso.id_secretaria;
+  const situacao = curso.situacao;
 
-  const id_curso = curso.id_curso || curso.idCurso || curso.id;
-  const nome = curso.nome || '';
-  const duracao = curso.duracao || 0;
-  const id_secretaria = curso.id_secretaria || curso.idSecretaria || '';
-  const situacao = curso.situacao || 'ATIVO';
-
-  // Validações com logs
-  if (!id_curso) {
-    console.error('❌ [MAP CURSO] ID do curso não encontrado em:', curso);
+  // Validações
+  if (!idCurso) {
     throw new Error('ID do curso não encontrado');
   }
   if (!nome || nome.trim() === '') {
-    console.error('❌ [MAP CURSO] Nome do curso não encontrado em:', curso);
     throw new Error('Nome do curso não encontrado');
   }
   if (!duracao || Number(duracao) <= 0) {
-    console.error('❌ [MAP CURSO] Duração do curso inválida em:', curso);
     throw new Error('Duração do curso inválida');
   }
 
-  const cursoMapeado = {
-    id_curso: Number(id_curso),
+  return {
+    idCurso: String(idCurso),
     nome: String(nome).trim(),
     duracao: Number(duracao),
     id_secretaria: String(id_secretaria),
-    situacao: situacao as 'ATIVO' | 'INATIVO'
+    situacao: situacao as SituacaoType
   };
-
-  console.log('✅ [MAP CURSO] Curso mapeado:', cursoMapeado);
-  return cursoMapeado;
 }
 
 function validateCursoData(curso: any): boolean {
@@ -180,7 +174,6 @@ export const useCursoForm = ({
         const api = getAPIClient();
         const response = await api.post(`/curso/${user.id}`, cursoDTO);
         
-        console.log('✅ [CURSO FORM] Curso criado:', response.data);
         setSuccessMessage('Curso cadastrado com sucesso!');
         
         form.reset({
@@ -209,7 +202,7 @@ export const useCursoForm = ({
   };
 };
 
-// ===== HOOK: LISTAGEM DE CURSOS =====
+// ===== HOOK: LISTAGEM DE CURSOS COM ATUALIZAÇÃO OTIMISTA =====
 export const useCursoList = (): UseCursoListReturn => {
   const [cursos, setCursos] = useState<CursoResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -217,6 +210,28 @@ export const useCursoList = (): UseCursoListReturn => {
   const { user } = useContext(AuthContext);
 
   const clearError = useCallback(() => setError(null), []);
+
+  // ✅ MÉTODO PARA ATUALIZAÇÃO OTIMISTA
+  const updateCursoOptimistic = useCallback((cursoId: string, updates: Partial<CursoResponse>) => {
+    setCursos(prev => 
+      prev.map(curso => 
+        curso.idCurso === cursoId 
+          ? { ...curso, ...updates }
+          : curso
+      )
+    );
+  }, []);
+
+  // ✅ MÉTODO PARA REVERTER ATUALIZAÇÃO OTIMISTA
+  const revertCursoOptimistic = useCallback((cursoId: string, originalData: CursoResponse) => {
+    setCursos(prev => 
+      prev.map(curso => 
+        curso.idCurso === cursoId 
+          ? originalData
+          : curso
+      )
+    );
+  }, []);
 
   // GET /curso/{id_secretaria}/secretaria
   const fetchCursos = useCallback(async (): Promise<void> => {
@@ -239,6 +254,7 @@ export const useCursoList = (): UseCursoListReturn => {
 
       let cursosData = response.data;
       
+      // Normalizar resposta (pode ser array direto ou object com array)
       if (!Array.isArray(cursosData)) {
         if (cursosData.cursos && Array.isArray(cursosData.cursos)) {
           cursosData = cursosData.cursos;
@@ -258,7 +274,7 @@ export const useCursoList = (): UseCursoListReturn => {
             cursosValidos.push(cursoMapeado);
           }
         } catch (mappingError) {
-          console.warn('⚠️ [CURSO LIST] Erro ao mapear curso:', curso, mappingError);
+          console.warn('⚠️ Erro ao mapear curso:', curso, mappingError);
         }
       }
 
@@ -290,10 +306,12 @@ export const useCursoList = (): UseCursoListReturn => {
     error,
     refetch,
     clearError,
+    updateCursoOptimistic,
+    revertCursoOptimistic,
   };
 };
 
-// ===== HOOK: AÇÕES DE CURSO =====
+// ===== HOOK: AÇÕES DE CURSO COM ATUALIZAÇÃO OTIMISTA =====
 export const useCursoActions = (): UseCursoActionsReturn => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -304,25 +322,19 @@ export const useCursoActions = (): UseCursoActionsReturn => {
     setSuccessMessage(null);
   }, []);
 
-  // PUT /curso/{id_curso}/situacao
+  // ✅ PUT /curso/{id_curso}/situacao com ATUALIZAÇÃO OTIMISTA
   const updateSituacao = useCallback(async (
-    cursoId: number, 
-    situacao: 'ATIVO' | 'INATIVO'
+    cursoId: string, 
+    situacao: SituacaoType,
+    onOptimisticUpdate?: (revert: () => void) => void
   ): Promise<void> => {
-    // Logs detalhados para debug
-    console.log('🔄 [UPDATE SITUACAO] Iniciando atualização...');
-    console.log('📋 [UPDATE SITUACAO] Curso ID:', cursoId, typeof cursoId);
-    console.log('📋 [UPDATE SITUACAO] Situação:', situacao, typeof situacao);
-
-    if (!cursoId || cursoId <= 0) {
-      console.error('❌ [UPDATE SITUACAO] ID do curso inválido:', cursoId);
-      setError('ID do curso inválido');
+    if (!cursoId || cursoId.trim() === '') {
+      setError('ID do curso é obrigatório');
       return;
     }
 
-    // Validação rigorosa da situação
+    // Validação da situação
     if (!situacao || !['ATIVO', 'INATIVO'].includes(situacao)) {
-      console.error('❌ [UPDATE SITUACAO] Situação inválida:', situacao);
       setError('Situação deve ser ATIVO ou INATIVO');
       return;
     }
@@ -331,45 +343,30 @@ export const useCursoActions = (): UseCursoActionsReturn => {
     setError(null);
 
     try {
-      // Garantir que a situação está exatamente como esperado
-      const updateDTO: CursoUpdateSituacao = { 
-        situacao: situacao.toUpperCase() as 'ATIVO' | 'INATIVO'
+      // ✅ DTO exatamente como seu CursoEditarDTO
+      const editarDTO: CursoEditarDTO = { 
+        situacao: situacao
       };
       
-      console.log('📤 [UPDATE SITUACAO] Enviando para API:', {
-        url: `/curso/${cursoId}/situacao`,
-        body: updateDTO
-      });
-      
       const api = getAPIClient();
-      const response = await api.put(`/curso/${cursoId}/situacao`, updateDTO);
-      
-      console.log('✅ [UPDATE SITUACAO] Resposta da API:', response.data);
-      console.log('✅ [UPDATE SITUACAO] Status da resposta:', response.status);
+      const response = await api.put(`/curso/${cursoId}/situacao`, editarDTO);
       
       setSuccessMessage(`Curso ${situacao.toLowerCase()} com sucesso!`);
       
     } catch (err: unknown) {
-      console.error('❌ [UPDATE SITUACAO] Erro completo:', err);
-      
-      // Log detalhado do erro
-      if (err && typeof err === 'object' && 'response' in err) {
-        const axiosError = err as any;
-        console.error('❌ [UPDATE SITUACAO] Status:', axiosError.response?.status);
-        console.error('❌ [UPDATE SITUACAO] Data:', axiosError.response?.data);
-        console.error('❌ [UPDATE SITUACAO] Headers:', axiosError.response?.headers);
-      }
-      
       const errorMessage = handleCursoError(err, 'UpdateCursoSituacao');
       setError(errorMessage);
+      
+      // ✅ SE DEU ERRO, CHAMA A FUNÇÃO DE REVERTER
+      if (onOptimisticUpdate) {
+        // Função vazia porque a reversão será feita no componente
+      }
+      
       throw err;
     } finally {
       setLoading(false);
     }
   }, []);
-
-  // DELETE /curso/{id_curso} - REMOVIDO (endpoint não existe)
-  // Funcionalidade de deletar removida
 
   return {
     updateSituacao,
@@ -392,7 +389,7 @@ export const useCursoManager = () => {
 
   const wrapperActions = {
     ...actions,
-    updateSituacao: useCallback(async (cursoId: number, situacao: 'ATIVO' | 'INATIVO') => {
+    updateSituacao: useCallback(async (cursoId: string, situacao: SituacaoType) => {
       await actions.updateSituacao(cursoId, situacao);
       refreshList();
     }, [actions.updateSituacao, refreshList]),

@@ -1,10 +1,11 @@
-// src/components/secretaria/home/curso/ListarCursos.tsx - COM AÇÕES FUNCIONAIS
+// src/components/secretaria/home/curso/ListarCursos.tsx - COM ATUALIZAÇÃO OTIMISTA
 
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { useCursoList, useCursoActions } from '@/hooks/secretaria/curso';
 import { LoadingSpinner } from '@/components/ui/loading/LoadingSpinner';
+import type { SituacaoType, CursoResponse } from '@/schemas';
 
 const CURSOS_POR_PAGINA = 8;
 
@@ -119,8 +120,25 @@ const Pagination: React.FC<PaginationProps> = ({
 };
 
 export default function ListarCursos() {
-  const { cursos, loading, error, refetch, clearError } = useCursoList();
-  const { updateSituacao, loading: actionLoading, successMessage, error: actionError, clearMessages } = useCursoActions();
+  // ✅ USAR OS NOVOS MÉTODOS DE ATUALIZAÇÃO OTIMISTA
+  const { 
+    cursos, 
+    loading, 
+    error, 
+    refetch, 
+    clearError,
+    updateCursoOptimistic,
+    revertCursoOptimistic 
+  } = useCursoList();
+  
+  const { 
+    updateSituacao, 
+    loading: actionLoading, 
+    successMessage, 
+    error: actionError, 
+    clearMessages 
+  } = useCursoActions();
+  
   const [currentPage, setCurrentPage] = useState(1);
   const [sortField, setSortField] = useState<'nome' | 'duracao' | 'situacao'>('nome');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -187,32 +205,27 @@ export default function ListarCursos() {
     setCurrentPage(1);
   }, [sortField]);
 
-  const handleToggleSituacao = useCallback(async (curso: any) => {
-    const novaSituacao = curso.situacao === 'ATIVO' ? 'INATIVO' : 'ATIVO';
+  // ✅ TOGGLE COM ATUALIZAÇÃO OTIMISTA
+  const handleToggleSituacao = useCallback(async (curso: CursoResponse) => {
+    const novaSituacao: SituacaoType = curso.situacao === 'ATIVO' ? 'INATIVO' : 'ATIVO';
     
-    // Log para debug
-    console.log('🔄 [TOGGLE SITUACAO] Dados do curso:', curso);
-    console.log('🔄 [TOGGLE SITUACAO] ID do curso:', curso.id_curso, typeof curso.id_curso);
-    console.log('🔄 [TOGGLE SITUACAO] Nova situação:', novaSituacao);
+    // 🚀 1. ATUALIZAR IMEDIATAMENTE NA TELA (OTIMISTA)
+    const dadosOriginais = { ...curso }; // Salvar dados originais
+    updateCursoOptimistic(curso.idCurso, { situacao: novaSituacao });
     
     try {
-      // Garantir que o ID é um número válido
-      const cursoId = Number(curso.id_curso);
+      // 📤 2. ENVIAR PARA API EM BACKGROUND
+      await updateSituacao(curso.idCurso, novaSituacao);
       
-      if (isNaN(cursoId) || cursoId <= 0) {
-        console.error('❌ [TOGGLE SITUACAO] ID do curso inválido:', curso.id_curso);
-        return;
-      }
+      // ✅ 3. SE DEU CERTO: não precisa fazer nada, já está atualizado!
       
-      await updateSituacao(cursoId, novaSituacao);
-      refetch(); // Recarregar lista após alteração
     } catch (error) {
-      console.error('❌ [TOGGLE SITUACAO] Erro:', error);
-      // Erro já é tratado no hook
+      // ❌ 4. SE DEU ERRO: REVERTER PARA O ESTADO ORIGINAL
+      revertCursoOptimistic(curso.idCurso, dadosOriginais);
+      
+      // 🔔 5. MOSTRAR MENSAGEM DE ERRO (já é tratada no hook)
     }
-  }, [updateSituacao, refetch]);
-
-  // Função de deletar removida - endpoint não existe
+  }, [updateSituacao, updateCursoOptimistic, revertCursoOptimistic]);
 
   const getSortIcon = (field: 'nome' | 'duracao' | 'situacao') => {
     if (sortField !== field) {
@@ -446,7 +459,7 @@ export default function ListarCursos() {
             <tbody className="bg-white divide-y divide-gray-200">
               {cursosExibidos.map((curso, index) => (
                 <tr 
-                  key={`curso-${curso.id_curso}-${index}`} 
+                  key={`curso-${curso.idCurso}-${index}`} 
                   className="hover:bg-gray-50 transition-colors"
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -462,9 +475,6 @@ export default function ListarCursos() {
                         <div className="text-sm font-medium text-gray-900">
                           {curso.nome}
                         </div>
-                        <div className="text-xs text-gray-500">
-                          ID: {curso.id_curso}
-                        </div>
                       </div>
                     </div>
                   </td>
@@ -479,7 +489,7 @@ export default function ListarCursos() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-all duration-200 ${
                       curso.situacao === 'ATIVO' 
                         ? 'bg-green-100 text-green-800' 
                         : curso.situacao === 'INATIVO'
@@ -487,7 +497,7 @@ export default function ListarCursos() {
                         : 'bg-gray-100 text-gray-800'
                     }`}>
                       <svg 
-                        className={`w-1.5 h-1.5 mr-1.5 ${
+                        className={`w-1.5 h-1.5 mr-1.5 transition-colors duration-200 ${
                           curso.situacao === 'ATIVO' 
                             ? 'text-green-400' 
                             : curso.situacao === 'INATIVO'
@@ -504,17 +514,17 @@ export default function ListarCursos() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end">
-                      {/* Toggle Switch para Situação */}
+                      {/* ✅ TOGGLE SWITCH COM ATUALIZAÇÃO INSTANTÂNEA */}
                       <div className="flex items-center space-x-3">
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-gray-600 transition-colors duration-200">
                           {curso.situacao === 'ATIVO' ? 'Ativo' : 'Inativo'}
                         </span>
                         <button
                           onClick={() => handleToggleSituacao(curso)}
                           disabled={actionLoading}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 ${
                             curso.situacao === 'ATIVO' 
-                              ? 'bg-blue-600' 
+                              ? 'bg-blue-600 shadow-md' 
                               : 'bg-gray-200'
                           }`}
                           title={`${curso.situacao === 'ATIVO' ? 'Desativar' : 'Ativar'} curso`}
@@ -523,7 +533,7 @@ export default function ListarCursos() {
                             {curso.situacao === 'ATIVO' ? 'Desativar' : 'Ativar'} curso
                           </span>
                           <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-sm ${
                               curso.situacao === 'ATIVO' ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />

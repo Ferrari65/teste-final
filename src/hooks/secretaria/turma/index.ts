@@ -1,4 +1,4 @@
-// src/hooks/secretaria/turma/index.ts - CORRIGIDO PARA API REAL
+// src/hooks/secretaria/turma/index.ts - SEM LOGS EXCESSIVOS
 
 import { useState, useContext, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
@@ -43,11 +43,6 @@ function handleSubmitError(error: unknown): string {
   const status = axiosError.response?.status;
   const responseData = axiosError.response?.data as { message?: string; error?: string } | undefined;
 
-  console.error('❌ Erro completo:', axiosError);
-  console.error('❌ Response data:', responseData);
-  console.error('❌ Status:', status);
-  console.error('❌ URL tentada:', axiosError.config?.url);
-
   // Tratamento específico por status
   switch (status) {
     case 400:
@@ -68,7 +63,7 @@ function handleSubmitError(error: unknown): string {
   }
 }
 
-// ===== HOOK: FORMULÁRIO DE TURMA (CORRIGIDO) =====
+// ===== HOOK: FORMULÁRIO DE TURMA =====
 export const useTurmaForm = ({
   onSuccess,
   initialData,
@@ -96,8 +91,6 @@ export const useTurmaForm = ({
 
   const onSubmit = useCallback(
     async (data: TurmaFormData): Promise<void> => {
-      console.log('📝 Dados do formulário:', data);
-      
       if (!user?.id) {
         setError('ID da secretaria não encontrado. Faça login novamente.');
         return;
@@ -112,22 +105,16 @@ export const useTurmaForm = ({
       setError(null);
 
       try {
-        // ✅ Usar transformer correto (apenas nome, ano, turno)
+        // Usar transformer correto (apenas nome, ano, turno)
         const turmaDTO = transformTurmaFormToDTO(data);
-        
-        console.log('📤 Dados enviados para API:', turmaDTO);
-        console.log('🆔 ID Secretaria (path):', user.id);
-        console.log('🆔 ID Curso (path):', data.id_curso);
         
         const api = getAPIClient();
         
-        // ✅ Endpoint correto + Body apenas com nome, ano, turno
+        // Endpoint correto + Body apenas com nome, ano, turno
         const response = await api.post(
           `/turma/criar/${user.id}/${data.id_curso}`, 
           turmaDTO
         );
-        
-        console.log('✅ Resposta da API:', response.data);
 
         setSuccessMessage('Turma cadastrada com sucesso!');
         form.reset({
@@ -158,7 +145,7 @@ export const useTurmaForm = ({
   };
 };
 
-// ===== HOOK: BUSCAR TURMA (MANTIDO) =====
+// ===== HOOK: BUSCAR TURMA =====
 export interface UseTurmaSearchReturn {
   searchId: string;
   setSearchId: (id: string) => void;
@@ -199,8 +186,6 @@ export const useTurmaSearch = (): UseTurmaSearchReturn => {
       
       // Endpoint para buscar turma específica
       const response = await api.get(`/turma/buscarTurma/${searchId}`);
-      
-      console.log('✅ Turma encontrada:', response.data);
       
       if (response.data && typeof response.data === 'object') {
         setTurma(response.data as TurmaResponse);

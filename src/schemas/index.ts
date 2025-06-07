@@ -1,4 +1,4 @@
-// src/schemas/index.ts
+// src/schemas/index.ts - CORRIGIDO PARA SEU BACKEND
 
 import { z } from 'zod';
 
@@ -66,6 +66,11 @@ export const nameValidator = z
   .max(100, 'Nome muito longo')
   .trim();
 
+// ===== ENUM PARA SITUAÇÃO (IGUAL AO BACKEND) =====
+export const SituacaoTypeEnum = z.enum(['ATIVO', 'INATIVO'], {
+  errorMap: () => ({ message: 'Situação deve ser ATIVO ou INATIVO' }),
+});
+
 // ===== SCHEMAS DE AUTENTICAÇÃO =====
 export const loginSchema = z.object({
   email: emailValidator,
@@ -118,7 +123,9 @@ export const professorDTOSchema = z.object({
   id_secretaria: z.string(),
 });
 
-// ===== SCHEMAS DE CURSO =====
+// ===== SCHEMAS DE CURSO - CORRIGIDOS =====
+
+// Schema do formulário (UI)
 export const cursoFormSchema = z.object({
   nome: z
     .string()
@@ -139,25 +146,28 @@ export const cursoFormSchema = z.object({
     }),
 });
 
+// DTO para criação (POST) - sem situacao pois backend define como ATIVO
 export const cursoDTOSchema = z.object({
   nome: z.string().min(3).max(100),
   duracao: z.number().min(1).max(60),
-  situacao: z.literal('ATIVO').default('ATIVO'),
   id_secretaria: z.string().min(1),
 });
 
-export const cursoUpdateSituacaoSchema = z.object({
-  situacao: z.enum(['ATIVO', 'INATIVO'], {
-    errorMap: () => ({ message: 'Situação deve ser ATIVO ou INATIVO' }),
-  }),
+// DTO para edição (PUT situacao) - EXATAMENTE como seu CursoEditarDTO
+export const cursoEditarDTOSchema = z.object({
+  nome: z.string().optional(),
+  duracao: z.number().optional(), 
+  situacao: SituacaoTypeEnum.optional(),
+  id_secretaria: z.string().optional(),
 });
 
+// Response do backend - EXATAMENTE como seu CursoResponseDTO
 export const cursoResponseSchema = z.object({
-  id_curso: z.union([z.string(), z.number()]).transform(val => Number(val)),
-  nome: z.string().min(1),
-  duracao: z.number().positive(),
-  id_secretaria: z.string().min(1),
-  situacao: z.enum(['ATIVO', 'INATIVO']).default('ATIVO'),
+  idCurso: z.string(), // ✅ Seu backend retorna idCurso (não id_curso)
+  nome: z.string(),
+  duracao: z.number(),
+  situacao: SituacaoTypeEnum,
+  id_secretaria: z.string(),
 });
 
 // ===== SCHEMAS DE TURMA =====
@@ -177,27 +187,23 @@ export const turmaFormSchema = z.object({
   }),
 });
 
-// ✅ DTO COMPLETO - TODOS OS CAMPOS OBRIGATÓRIOS PARA SUA TABELA
+// DTO para turma (apenas os 3 campos do body)
 export const turmaDTOSchema = z.object({
   nome: z.string(),
   ano: z.string(),
-  id_curso: z.number().positive(),
-  id_secretaria: z.number().positive(), 
   turno: z.enum(['DIURNO', 'NOTURNO']),
-  situacao: z.literal('ATIVO').default('ATIVO'),
 });
 
 export const turmaResponseSchema = z.object({
-  id_turma: z.union([z.string(), z.number()]).transform(String), // Flexível para string ou number
+  idTurma: z.union([z.string(), z.number()]).transform(String),
   nome: z.string(),
   ano: z.string(),
-  id_curso: z.union([z.string(), z.number()]).transform(String),
-  id_secretaria: z.union([z.string(), z.number()]).transform(String),
+  idCurso: z.union([z.string(), z.number()]).transform(String),
+  idSecretaria: z.union([z.string(), z.number()]).transform(String),
   turno: z.enum(['DIURNO', 'NOTURNO']),
   situacao: z.string().optional().default('ATIVO'),
-  // Campos opcionais que podem vir do backend via JOIN
   alunos: z.array(z.object({
-    id_aluno: z.string(),
+    idAluno: z.string(),
     nome: z.string(),
     matricula: z.string(),
     email: z.string(),
@@ -210,10 +216,14 @@ export type LoginFormData = z.infer<typeof loginSchema>;
 export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 export type ProfessorFormData = z.infer<typeof professorFormSchema>;
 export type ProfessorDTO = z.infer<typeof professorDTOSchema>;
+
+// Tipos de Curso CORRIGIDOS
 export type CursoFormData = z.infer<typeof cursoFormSchema>;
 export type CursoDTO = z.infer<typeof cursoDTOSchema>;
-export type CursoUpdateSituacao = z.infer<typeof cursoUpdateSituacaoSchema>;
+export type CursoEditarDTO = z.infer<typeof cursoEditarDTOSchema>; // ✅ Novo
 export type CursoResponse = z.infer<typeof cursoResponseSchema>;
+export type SituacaoType = z.infer<typeof SituacaoTypeEnum>;
+
 export type TurmaFormData = z.infer<typeof turmaFormSchema>;
 export type TurmaDTO = z.infer<typeof turmaDTOSchema>;
 export type TurmaResponse = z.infer<typeof turmaResponseSchema>;
@@ -225,7 +235,7 @@ export const validateTurmaForm = (data: unknown) => turmaFormSchema.safeParse(da
 export const validateTurmaDTO = (data: unknown) => turmaDTOSchema.safeParse(data);
 export const validateCursoForm = (data: unknown) => cursoFormSchema.safeParse(data);
 export const validateCursoDTO = (data: unknown) => cursoDTOSchema.safeParse(data);
-export const validateCursoUpdateSituacao = (data: unknown) => cursoUpdateSituacaoSchema.safeParse(data);
+export const validateCursoEditarDTO = (data: unknown) => cursoEditarDTOSchema.safeParse(data);
 export const validateCursoResponse = (data: unknown) => cursoResponseSchema.safeParse(data);
 
 // ===== UTILITÁRIOS DE FORMATAÇÃO =====
