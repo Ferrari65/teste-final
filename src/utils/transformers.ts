@@ -1,4 +1,4 @@
-// src/utils/transformers.ts - VERSÃO CORRIGIDA SEM ERROS
+// src/utils/transformers.ts - VERSÃO CORRIGIDA
 
 import {
   ProfessorFormData,
@@ -11,7 +11,7 @@ import {
   cleanPhone
 } from '@/schemas';
 
-// ===== PROFESSOR (CORRIGIDO) =====
+// ===== PROFESSOR (INALTERADO) =====
 export const transformProfessorFormToDTO = (
   data: ProfessorFormData,
   secretariaId: string
@@ -50,7 +50,7 @@ export const transformProfessorFormToDTO = (
   };
 };
 
-// ===== CURSO (CORRIGIDO PARA INCLUIR TURNO) =====
+// ===== CURSO - REMOVIDO TURNO =====
 export const transformCursoFormToDTO = (
   data: CursoFormData,
   secretariaId: string
@@ -71,20 +71,15 @@ export const transformCursoFormToDTO = (
     throw new Error('ID da secretaria deve ser um número válido');
   }
 
-  const turnosValidos = ['DIURNO', 'NOTURNO'];
-  if (!turnosValidos.includes(data.turno)) {
-    throw new Error('Turno deve ser DIURNO ou NOTURNO');
-  }
-
   return {
     nome: data.nome.trim(),
     duracao,
-    turno: data.turno, // ✅ CAMPO TURNO ADICIONADO
+    // ❌ REMOVIDO: turno
     id_secretaria: idSecretaria
   };
 };
 
-// ===== TURMA (CORRIGIDO PARA INCLUIR TURNO) =====
+// ===== TURMA - SIMPLIFICADO PARA APENAS 3 CAMPOS =====
 export const transformTurmaFormToDTO = (
   data: TurmaFormData
 ): TurmaDTO => {
@@ -106,16 +101,6 @@ export const transformTurmaFormToDTO = (
     throw new Error('Nome da turma deve ter no máximo 100 caracteres');
   }
 
-  // ✅ VALIDAÇÃO DO CURSO
-  if (!data.id_curso || data.id_curso.trim() === '') {
-    throw new Error('Curso é obrigatório');
-  }
-
-  const idCurso = parseInt(data.id_curso, 10);
-  if (isNaN(idCurso) || idCurso <= 0) {
-    throw new Error('ID do curso deve ser um número válido');
-  }
-
   // ✅ VALIDAÇÃO DO TURNO
   if (!data.turno) {
     throw new Error('Turno é obrigatório');
@@ -126,11 +111,11 @@ export const transformTurmaFormToDTO = (
     throw new Error('Turno deve ser DIURNO ou NOTURNO');
   }
 
-  // ✅ RETORNAR DTO CORRETO (SÓ OS CAMPOS QUE VÃO NO BODY)
+  // ✅ RETORNAR APENAS OS 3 CAMPOS OBRIGATÓRIOS
   return {
     nome: data.nome.trim(),
     ano: data.ano,
-    turno: data.turno // ✅ INCLUIR TURNO CONFORME SEU BACKEND
+    turno: data.turno
   };
 };
 
@@ -219,12 +204,7 @@ export const validateFormData = {
       }
     }
 
-    // ✅ VALIDAÇÃO DE TURNO ADICIONADA
-    if (!data.turno) {
-      errors.push('Turno é obrigatório');
-    } else if (!['DIURNO', 'NOTURNO'].includes(data.turno)) {
-      errors.push('Turno deve ser DIURNO ou NOTURNO');
-    }
+    // ❌ REMOVIDO: validação de turno
 
     return errors;
   },
@@ -232,7 +212,7 @@ export const validateFormData = {
   turma: (data: TurmaFormData): string[] => {
     const errors: string[] = [];
 
-    // ✅ VALIDAÇÃO COMPLETA DOS CAMPOS OBRIGATÓRIOS
+    // ✅ VALIDAÇÃO DOS 4 CAMPOS (incluindo curso que será usado na URL)
     const requiredFields = [
       { value: data.nome?.trim(), label: 'Nome da turma' },
       { value: data.id_curso, label: 'Curso' },
@@ -260,7 +240,7 @@ export const validateFormData = {
   }
 };
 
-// ===== FORMATADORES (EXPANDIDOS) =====
+// ===== FORMATADORES =====
 export const formatters = {
   cpf: (cpf: string): string => {
     const clean = cleanCPF(cpf);

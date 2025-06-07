@@ -1,4 +1,4 @@
-// src/hooks/secretaria/turma/index.ts - HOOKS CORRIGIDOS SEM ANY
+// src/hooks/secretaria/turma/index.ts - CORRIGIDO PARA API REAL
 
 import { useState, useContext, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
@@ -28,43 +28,15 @@ export interface UseTurmaFormReturn {
   clearMessages: () => void;
 }
 
-export interface UseTurmaSearchReturn {
-  searchId: string;
-  setSearchId: (id: string) => void;
-  turma: TurmaResponse | null;
-  loading: boolean;
-  error: string | null;
-  handleSearch: () => void;
-  handleClear: () => void;
-  clearError: () => void;
-}
-
 interface UseTurmaFormOptions {
   onSuccess?: () => void;
   initialData?: Partial<TurmaFormData>;
 }
 
 // ===== HELPER FUNCTIONS =====
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (typeof error === 'string') {
-    return error;
-  }
-  return 'Erro desconhecido';
-}
-
-function isAxiosError(error: unknown): error is AxiosError {
-  return error !== null && 
-         typeof error === 'object' && 
-         'response' in error && 
-         'config' in error;
-}
-
 function handleSubmitError(error: unknown): string {
-  if (!isAxiosError(error)) {
-    return getErrorMessage(error);
+  if (!(error instanceof Error) && typeof error !== 'object') {
+    return String(error);
   }
 
   const axiosError = error as AxiosError;
@@ -96,24 +68,7 @@ function handleSubmitError(error: unknown): string {
   }
 }
 
-function handleSearchError(error: unknown, searchId: string): string {
-  if (!isAxiosError(error)) {
-    return getErrorMessage(error);
-  }
-
-  const axiosError = error as AxiosError;
-  console.error('❌ Erro ao buscar turma:', axiosError);
-  
-  const { message } = handleApiError(axiosError, 'SearchTurma');
-  
-  if (axiosError.response?.status === 404) {
-    return `Turma com ID "${searchId}" não encontrada`;
-  }
-  
-  return message;
-}
-
-// ===== HOOK: FORMULÁRIO DE TURMA =====
+// ===== HOOK: FORMULÁRIO DE TURMA (CORRIGIDO) =====
 export const useTurmaForm = ({
   onSuccess,
   initialData,
@@ -157,7 +112,7 @@ export const useTurmaForm = ({
       setError(null);
 
       try {
-        // Usar transformer corrigido com turno
+        // ✅ Usar transformer correto (apenas nome, ano, turno)
         const turmaDTO = transformTurmaFormToDTO(data);
         
         console.log('📤 Dados enviados para API:', turmaDTO);
@@ -166,7 +121,7 @@ export const useTurmaForm = ({
         
         const api = getAPIClient();
         
-        // Endpoint correto baseado na documentação
+        // ✅ Endpoint correto + Body apenas com nome, ano, turno
         const response = await api.post(
           `/turma/criar/${user.id}/${data.id_curso}`, 
           turmaDTO
@@ -203,7 +158,18 @@ export const useTurmaForm = ({
   };
 };
 
-// ===== HOOK: BUSCAR TURMA =====
+// ===== HOOK: BUSCAR TURMA (MANTIDO) =====
+export interface UseTurmaSearchReturn {
+  searchId: string;
+  setSearchId: (id: string) => void;
+  turma: TurmaResponse | null;
+  loading: boolean;
+  error: string | null;
+  handleSearch: () => void;
+  handleClear: () => void;
+  clearError: () => void;
+}
+
 export const useTurmaSearch = (): UseTurmaSearchReturn => {
   const [searchId, setSearchId] = useState('');
   const [turma, setTurma] = useState<TurmaResponse | null>(null);
@@ -236,7 +202,6 @@ export const useTurmaSearch = (): UseTurmaSearchReturn => {
       
       console.log('✅ Turma encontrada:', response.data);
       
-      // Validar se a resposta tem a estrutura esperada
       if (response.data && typeof response.data === 'object') {
         setTurma(response.data as TurmaResponse);
       } else {
@@ -244,8 +209,17 @@ export const useTurmaSearch = (): UseTurmaSearchReturn => {
       }
       
     } catch (error: unknown) {
-      const errorMessage = handleSearchError(error, searchId);
-      setError(errorMessage);
+      if (error instanceof Error && 'response' in error) {
+        const axiosError = error as AxiosError;
+        if (axiosError.response?.status === 404) {
+          setError(`Turma com ID "${searchId}" não encontrada`);
+        } else {
+          const { message } = handleApiError(axiosError, 'SearchTurma');
+          setError(message);
+        }
+      } else {
+        setError('Erro ao buscar turma');
+      }
       setTurma(null);
     } finally {
       setLoading(false);

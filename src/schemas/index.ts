@@ -1,3 +1,5 @@
+// src/schemas/index.ts - VERSÃO CORRIGIDA
+
 import { z } from 'zod';
 
 // ===== VALIDADORES BASE =====
@@ -118,7 +120,7 @@ export const professorDTOSchema = z.object({
   id_secretaria: z.string(),
 });
 
-// ===== SCHEMAS DE CURSO =====
+// ===== SCHEMAS DE CURSO - REMOVIDO TURNO =====
 export const cursoFormSchema = z.object({
   nome: nameValidator,
   duracao: z
@@ -133,30 +135,26 @@ export const cursoFormSchema = z.object({
       }
       return num;
     }),
-  // ✅ ADICIONADO CAMPO TURNO OBRIGATÓRIO
-  turno: z.enum(['DIURNO', 'NOTURNO'], {
-    errorMap: () => ({ message: 'Selecione o turno' }),
-  }),
+  // ❌ REMOVIDO: turno não faz parte do curso
 });
 
 export const cursoDTOSchema = z.object({
   nome: z.string(),
   duracao: z.number().positive('Duração deve ser positiva'),
-  turno: z.enum(['DIURNO', 'NOTURNO']), // ✅ TURNO NO DTO
+  // ❌ REMOVIDO: turno
   id_secretaria: z.number().positive(),
 });
 
-// ✅ RESPONSE CORRIGIDO PARA INCLUIR TURNO
 export const cursoResponseSchema = z.object({
   id_curso: z.number(),
   nome: z.string(),
   duracao: z.number(),
-  turno: z.enum(['DIURNO', 'NOTURNO']), // ✅ TURNO NA RESPONSE
+  // ❌ REMOVIDO: turno
   id_secretaria: z.number(),
   situacao: z.enum(['ATIVO', 'INATIVO']).optional(),
 });
 
-// ===== SCHEMAS DE TURMA - CORRIGIDO PARA MATCH COM BACKEND =====
+// ===== SCHEMAS DE TURMA - SIMPLIFICADO =====
 export const turmaFormSchema = z.object({
   nome: nameValidator.refine(
     (name) => name.length >= 3 && name.length <= 100,
@@ -172,14 +170,13 @@ export const turmaFormSchema = z.object({
   }),
 });
 
-// ✅ DTO QUE CORRESPONDE AO BACKEND
+// ✅ DTO SIMPLIFICADO - APENAS OS 3 CAMPOS OBRIGATÓRIOS
 export const turmaDTOSchema = z.object({
   nome: z.string(),
   ano: z.string(),
   turno: z.enum(['DIURNO', 'NOTURNO']),
 });
 
-// ✅ RESPONSE QUE CORRESPONDE AO TurmaResponseDTO
 export const turmaResponseSchema = z.object({
   idTurma: z.string(),
   nome: z.string(),

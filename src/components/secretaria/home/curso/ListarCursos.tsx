@@ -1,3 +1,5 @@
+// src/components/secretaria/home/curso/ListarCursos.tsx - SEM TURNO
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -65,7 +67,11 @@ const Pagination: React.FC<PaginationProps> = ({
 
       <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
         <div>
-
+          <p className="text-sm text-gray-700">
+            Mostrando <span className="font-medium">{startItem}</span> até{' '}
+            <span className="font-medium">{endItem}</span> de{' '}
+            <span className="font-medium">{totalItems}</span> resultados
+          </p>
         </div>
 
         <div>
@@ -82,7 +88,7 @@ const Pagination: React.FC<PaginationProps> = ({
               </svg>
             </button>
 
-            {/* Total de Paginas */}
+            {/* Páginas */}
             {visiblePages.map((page) => (
               <button
                 key={page}
@@ -97,7 +103,7 @@ const Pagination: React.FC<PaginationProps> = ({
               </button>
             ))}
 
-            {/* Next page */}
+            {/* Próxima página */}
             <button
               onClick={() => onPageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
@@ -128,11 +134,9 @@ export default function ListarCursos() {
     return cursos.slice(startIndex, endIndex);
   }, [cursos, currentPage]);
 
-
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
-
       document.getElementById('tabela-cursos')?.scrollIntoView({ 
         behavior: 'smooth', 
         block: 'start' 
@@ -208,6 +212,7 @@ export default function ListarCursos() {
       </div>
     );
   }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -250,7 +255,6 @@ export default function ListarCursos() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Nome do Curso
                 </th>
@@ -260,36 +264,35 @@ export default function ListarCursos() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {cursosExibidos.map((curso, index) => (
-                  <tr 
-                    key={curso.id_curso || `curso-${index}`} 
-                    className="hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {curso.nome}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {curso.duracao} {curso.duracao === 1 ? 'mês' : 'meses'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        curso.situacao === 'ATIVO' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {curso.situacao}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                <tr 
+                  key={curso.id_curso || `curso-${index}`} 
+                  className="hover:bg-gray-50 transition-colors"
+                >
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">
+                      {curso.nome}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {curso.duracao} {curso.duracao === 1 ? 'mês' : 'meses'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      curso.situacao === 'ATIVO' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {curso.situacao}
+                    </span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
