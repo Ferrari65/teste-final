@@ -4,7 +4,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useTurmaSearch } from '@/hooks/secretaria/turma/useTurmaSearch';
+import { useTurmaSearch } from '@/components/secretaria/home/turma/useTurmaSearch';
 import { useCursoList } from '@/hooks/secretaria/curso';
 import { LoadingSpinner } from '@/components/ui/loading/LoadingSpinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';

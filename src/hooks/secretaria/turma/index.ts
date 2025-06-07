@@ -9,7 +9,7 @@ export type { TurmaFormProps, UseTurmaFormReturn } from './useTurmaForm';
 export { 
   useTurmaSearch,
   useTurmaQuickSearch 
-} from './useTurmaSearch';
+} from '../../../components/secretaria/home/turma/useTurmaSearch';
 
 export type { 
   FiltrosBusca,
