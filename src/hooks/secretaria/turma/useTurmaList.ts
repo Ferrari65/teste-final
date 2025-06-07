@@ -1,303 +1,152 @@
-// src/hooks/secretaria/turma/useTurmaList.ts - HOOK PARA LISTAR TURMAS
+// src/hooks/secretaria/turma/useTurmaForm.ts
+// Hook apenas para cadastro de turmas (sem busca por ID)
 
-import { useState, useContext, useCallback, useEffect } from 'react';
+import { useState, useContext, useCallback } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { AuthContext } from '@/contexts/AuthContext';
 import { getAPIClient, handleApiError } from '@/services/api';
-import type { TurmaResponse } from '@/schemas';
+import { transformTurmaFormToDTO } from '@/utils/transformers';
+import {
+  turmaFormSchema,
+  type TurmaFormData,
+} from '@/schemas';
+import { AxiosError } from 'axios';
 
 // ===== INTERFACES =====
-export interface FiltrosTurma {
-  nome?: string;
-  curso?: string;
-  ano?: string;
-  turno?: 'DIURNO' | 'NOTURNO';
-  page?: number;
-  size?: number;
+export interface TurmaFormProps {
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-export interface TurmaListResponse {
-  turmas: TurmaResponse[];
-  totalElements: number;
-  totalPages: number;
-  currentPage: number;
-  size: number;
-}
-
-export interface UseTurmaListReturn {
-  turmas: TurmaResponse[];
+export interface UseTurmaFormReturn {
+  form: ReturnType<typeof useForm<TurmaFormData>>;
+  onSubmit: (data: TurmaFormData) => Promise<void>;
   loading: boolean;
   error: string | null;
-  totalElements: number;
-  totalPages: number;
-  currentPage: number;
-  fetchTurmas: (filtros?: FiltrosTurma) => Promise<void>;
-  refetch: () => void;
-  clearError: () => void;
+  successMessage: string | null;
+  clearMessages: () => void;
 }
 
-// ===== HOOK PRINCIPAL =====
-export const useTurmaList = (
-  filtrosIniciais: FiltrosTurma = {}
-): UseTurmaListReturn => {
-  const [turmas, setTurmas] = useState<TurmaResponse[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [totalElements, setTotalElements] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [ultimosFiltros, setUltimosFiltros] = useState<FiltrosTurma>(filtrosIniciais);
-  
-  const { user } = useContext(AuthContext);
+interface UseTurmaFormOptions {
+  onSuccess?: () => void;
+  initialData?: Partial<TurmaFormData>;
+}
 
-  const clearError = useCallback(() => setError(null), []);
+// ===== HELPER FUNCTIONS =====
+function handleSubmitError(error: unknown): string {
+  if (!(error instanceof Error) && typeof error !== 'object') {
+    return String(error);
+  }
 
-  // ===== FUNÇÃO PARA BUSCAR TURMAS =====
-  const fetchTurmas = useCallback(async (filtros: FiltrosTurma = {}): Promise<void> => {
-    if (!user?.id) {
-      setError('ID da secretaria não encontrado. Faça login novamente.');
-      return;
-    }
+  const axiosError = error as AxiosError;
+  const status = axiosError.response?.status;
+  const responseData = axiosError.response?.data as { message?: string; error?: string } | undefined;
 
-    setLoading(true);
-    setError(null);
-    setUltimosFiltros(filtros);
-
-    try {
-      const api = getAPIClient();
-      
-      // ✅ CONSTRUIR QUERY PARAMS
-      const queryParams = new URLSearchParams();
-      
-      if (filtros.nome?.trim()) {
-        queryParams.append('nome', filtros.nome.trim());
-      }
-      
-      if (filtros.curso?.trim()) {
-        queryParams.append('idCurso', filtros.curso.trim());
-      }
-      
-      if (filtros.ano?.trim()) {
-        queryParams.append('ano', filtros.ano.trim());
-      }
-      
-      if (filtros.turno) {
-        queryParams.append('turno', filtros.turno);
-      }
-      
-      // Paginação
-      queryParams.append('page', String(filtros.page || 0));
-      queryParams.append('size', String(filtros.size || 10));
-
-      // ✅ ENDPOINT QUE VOCÊ PRECISA CRIAR NO BACKEND
-      // Exemplo: GET /turma/listar/{id_secretaria}?nome=...&idCurso=...&ano=...&turno=...&page=0&size=10
-      const queryString = queryParams.toString();
-      const endpoint = `/turma/listar/${user.id}${queryString ? `?${queryString}` : ''}`;
-      
-      const response = await api.get<TurmaListResponse>(endpoint);
-      
-      if (response.data) {
-        // ✅ SE O BACKEND RETORNA PAGINAÇÃO ESTRUTURADA
-        if ('turmas' in response.data && Array.isArray(response.data.turmas)) {
-          setTurmas(response.data.turmas);
-          setTotalElements(response.data.totalElements || 0);
-          setTotalPages(response.data.totalPages || 0);
-          setCurrentPage(response.data.currentPage || 0);
-        } 
-        // ✅ SE O BACKEND RETORNA ARRAY DIRETO
-        else if (Array.isArray(response.data)) {
-          setTurmas(response.data);
-          setTotalElements(response.data.length);
-          setTotalPages(1);
-          setCurrentPage(0);
-        } 
-        // ✅ FALLBACK
-        else {
-          setTurmas([]);
-          setTotalElements(0);
-          setTotalPages(0);
-          setCurrentPage(0);
-        }
-      } else {
-        setTurmas([]);
-        setTotalElements(0);
-        setTotalPages(0);
-        setCurrentPage(0);
-      }
-      
-    } catch (err: unknown) {
-      const { message, status } = handleApiError(err, 'FetchTurmas');
-      
-      // ✅ TRATAMENTO ESPECÍFICO DE ERROS
-      switch (status) {
-        case 404:
-          setError('Nenhuma turma encontrada com os filtros especificados.');
-          break;
-        case 403:
-          setError('Sem permissão para listar turmas.');
-          break;
-        default:
-          setError(message);
-      }
-      
-      setTurmas([]);
-      setTotalElements(0);
-      setTotalPages(0);
-      setCurrentPage(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id]);
-
-  // ===== FUNÇÃO PARA REFETCH =====
-  const refetch = useCallback(() => {
-    fetchTurmas(ultimosFiltros);
-  }, [fetchTurmas, ultimosFiltros]);
-
-  // ===== BUSCAR AUTOMATICAMENTE NA MONTAGEM =====
-  useEffect(() => {
-    if (user?.id) {
-      fetchTurmas(filtrosIniciais);
-    }
-  }, [user?.id]); // Não incluir fetchTurmas aqui para evitar loop
-
-  return {
-    turmas,
-    loading,
-    error,
-    totalElements,
-    totalPages,
-    currentPage,
-    fetchTurmas,
-    refetch,
-    clearError,
-  };
-};
-
-// ===== HOOK SIMPLIFICADO PARA BUSCA RÁPIDA =====
-export const useTurmaQuickSearch = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [resultados, setResultados] = useState<TurmaResponse[]>([]);
-  const [loading, setLoading] = useState(false);
-  
-  const { user } = useContext(AuthContext);
-
-  const buscarRapido = useCallback(async (termo: string) => {
-    if (!termo.trim() || !user?.id) {
-      setResultados([]);
-      return;
-    }
-
-    setLoading(true);
+  // Tratamento específico por status
+  switch (status) {
+    case 400:
+      const errorMsg = responseData?.message || responseData?.error;
+      return errorMsg 
+        ? `Erro de validação: ${errorMsg}`
+        : 'Dados inválidos. Verifique se todos os campos estão corretos.';
     
-    try {
-      const api = getAPIClient();
-      
-      // ✅ ENDPOINT PARA BUSCA RÁPIDA (VOCÊ PODE CRIAR)
-      // Exemplo: GET /turma/buscar-rapido/{id_secretaria}?q=termo
-      const response = await api.get(`/turma/buscar-rapido/${user.id}?q=${encodeURIComponent(termo)}`);
-      
-      setResultados(response.data || []);
-    } catch (error) {
-      setResultados([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id]);
+    case 404:
+      return 'Endpoint não encontrado. Verifique se o backend está rodando.';
+    
+    case 409:
+      return 'Já existe uma turma com esse nome neste curso.';
+    
+    case 500:
+      return 'Erro interno do servidor. Tente novamente.';
+    
+    default:
+      const { message } = handleApiError(axiosError, 'CreateTurma');
+      return message;
+  }
+}
 
-  // ✅ DEBOUNCE PARA BUSCA EM TEMPO REAL
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      buscarRapido(searchTerm);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchTerm, buscarRapido]);
-
-  return {
-    searchTerm,
-    setSearchTerm,
-    resultados,
-    loading,
-    buscarRapido
-  };
-};
-
-// ===== HOOKS DE AÇÕES COM TURMAS =====
-export const useTurmaActions = () => {
+// ===== HOOK: FORMULÁRIO DE TURMA =====
+export const useTurmaForm = ({
+  onSuccess,
+  initialData,
+}: UseTurmaFormOptions = {}): UseTurmaFormReturn => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  
   const { user } = useContext(AuthContext);
 
+  const form = useForm<TurmaFormData>({
+    resolver: zodResolver(turmaFormSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      nome: initialData?.nome ?? '',
+      id_curso: initialData?.id_curso ?? '',
+      ano: initialData?.ano ?? new Date().getFullYear().toString(),
+      turno: initialData?.turno ?? 'DIURNO',
+    },
+  });
+
   const clearMessages = useCallback(() => {
-    setError(null);
     setSuccessMessage(null);
+    setError(null);
   }, []);
 
-  // ✅ DELETAR TURMA
-  const deletarTurma = useCallback(async (turmaId: string): Promise<boolean> => {
-    if (!user?.id) {
-      setError('ID da secretaria não encontrado.');
-      return false;
-    }
+  const onSubmit = useCallback(
+    async (data: TurmaFormData): Promise<void> => {
+      if (!user?.id) {
+        setError('ID da secretaria não encontrado. Faça login novamente.');
+        return;
+      }
 
-    setLoading(true);
-    setError(null);
+      if (!data.id_curso) {
+        setError('Curso é obrigatório. Selecione um curso.');
+        return;
+      }
 
-    try {
-      const api = getAPIClient();
-      
-      // ✅ ENDPOINT PARA DELETAR (VOCÊ PODE CRIAR)
-      await api.delete(`/turma/deletar/${turmaId}`);
-      
-      setSuccessMessage('Turma excluída com sucesso!');
-      return true;
-    } catch (err) {
-      const { message } = handleApiError(err, 'DeleteTurma');
-      setError(message);
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id]);
+      setLoading(true);
+      setError(null);
 
-  // ✅ EDITAR TURMA
-  const editarTurma = useCallback(async (
-    turmaId: string, 
-    dadosAtualizados: Partial<Pick<TurmaResponse, 'nome' | 'ano'>>
-  ): Promise<boolean> => {
-    if (!user?.id) {
-      setError('ID da secretaria não encontrado.');
-      return false;
-    }
+      try {
+        // ✅ Usar transformer que só retorna nome, ano, turno
+        const turmaDTO = transformTurmaFormToDTO(data);
+        
+        const api = getAPIClient();
+        
+        // ✅ Endpoint correto do seu backend
+        const response = await api.post(
+          `/turma/criar/${user.id}/${data.id_curso}`, 
+          turmaDTO
+        );
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      const api = getAPIClient();
-      
-      // ✅ ENDPOINT PARA EDITAR (VOCÊ PODE CRIAR)
-      await api.put(`/turma/editar/${turmaId}`, dadosAtualizados);
-      
-      setSuccessMessage('Turma atualizada com sucesso!');
-      return true;
-    } catch (err) {
-      const { message } = handleApiError(err, 'EditTurma');
-      setError(message);
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id]);
+        setSuccessMessage('Turma cadastrada com sucesso!');
+        
+        // Reset do formulário
+        form.reset({
+          nome: '',
+          id_curso: '',
+          ano: new Date().getFullYear().toString(),
+          turno: 'DIURNO',
+        });
+        
+        onSuccess?.();
+        
+      } catch (error: unknown) {
+        const errorMessage = handleSubmitError(error);
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [user?.id, form, onSuccess]
+  );
 
   return {
+    form,
+    onSubmit,
     loading,
     error,
     successMessage,
     clearMessages,
-    deletarTurma,
-    editarTurma,
   };
 };
