@@ -1,4 +1,4 @@
-// src/schemas/index.ts - VERSÃO CORRIGIDA
+// src/schemas/index.ts
 
 import { z } from 'zod';
 
@@ -47,7 +47,6 @@ export const emailValidator = z
 
 export const passwordValidator = z
   .string()
-  .min(1, 'Senha é obrigatória')
   .min(6, 'Senha deve ter pelo menos 6 caracteres')
   .max(50, 'Senha muito longa');
 
@@ -63,7 +62,6 @@ export const phoneValidator = z
 
 export const nameValidator = z
   .string()
-  .min(1, 'Nome é obrigatório')
   .min(2, 'Nome deve ter pelo menos 2 caracteres')
   .max(100, 'Nome muito longo')
   .trim();
@@ -120,10 +118,10 @@ export const professorDTOSchema = z.object({
   id_secretaria: z.string(),
 });
 
-// ===== SCHEMAS DE CURSO - AJUSTADO PARA SUA TABELA =====
+// ===== SCHEMAS DE CURSO =====
 export const cursoFormSchema = z.object({
-  nome: z.string()
-    .min(1, 'Nome do curso é obrigatório')
+  nome: z
+    .string()
     .min(3, 'Nome do curso deve ter pelo menos 3 caracteres')
     .max(100, 'Nome do curso deve ter no máximo 100 caracteres')
     .trim(),
@@ -141,37 +139,34 @@ export const cursoFormSchema = z.object({
     }),
 });
 
-// ✅ DTO PARA CRIAÇÃO - BASEADO NO SEU ENDPOINT POST
 export const cursoDTOSchema = z.object({
-  nome: z.string(),
-  duracao: z.number().positive('Duração deve ser positiva'),
+  nome: z.string().min(3).max(100),
+  duracao: z.number().min(1).max(60),
   situacao: z.literal('ATIVO').default('ATIVO'),
-  id_secretaria: z.string(), // Conforme sua tabela é text
+  id_secretaria: z.string().min(1),
 });
 
-// ✅ DTO PARA ATUALIZAÇÃO DE SITUAÇÃO - BASEADO NO SEU ENDPOINT PUT
 export const cursoUpdateSituacaoSchema = z.object({
   situacao: z.enum(['ATIVO', 'INATIVO'], {
     errorMap: () => ({ message: 'Situação deve ser ATIVO ou INATIVO' }),
   }),
 });
 
-// ✅ RESPONSE SCHEMA - SEM DATA_ALTERACAO (não mostrar no front)
 export const cursoResponseSchema = z.object({
   id_curso: z.union([z.string(), z.number()]).transform(val => Number(val)),
-  nome: z.string(),
+  nome: z.string().min(1),
   duracao: z.number().positive(),
-  id_secretaria: z.string(),
-  situacao: z.enum(['ATIVO', 'INATIVO']).optional().default('ATIVO'),
-  // ❌ data_alteracao - NÃO incluir no front
+  id_secretaria: z.string().min(1),
+  situacao: z.enum(['ATIVO', 'INATIVO']).default('ATIVO'),
 });
 
-// ===== SCHEMAS DE TURMA - SIMPLIFICADO =====
+// ===== SCHEMAS DE TURMA =====
 export const turmaFormSchema = z.object({
-  nome: nameValidator.refine(
-    (name) => name.length >= 3 && name.length <= 100,
-    'Nome da turma deve ter entre 3 e 100 caracteres'
-  ),
+  nome: z.string()
+    .min(1, 'Nome da turma é obrigatório')
+    .min(3, 'Nome da turma deve ter pelo menos 3 caracteres')
+    .max(100, 'Nome da turma deve ter no máximo 100 caracteres')
+    .trim(),
   id_curso: z.string().min(1, 'Curso é obrigatório'),
   ano: z
     .string()
@@ -182,26 +177,32 @@ export const turmaFormSchema = z.object({
   }),
 });
 
-// ✅ DTO SIMPLIFICADO - APENAS OS 3 CAMPOS OBRIGATÓRIOS
+// ✅ DTO COMPLETO - TODOS OS CAMPOS OBRIGATÓRIOS PARA SUA TABELA
 export const turmaDTOSchema = z.object({
   nome: z.string(),
   ano: z.string(),
+  id_curso: z.number().positive(),
+  id_secretaria: z.number().positive(), 
   turno: z.enum(['DIURNO', 'NOTURNO']),
+  situacao: z.literal('ATIVO').default('ATIVO'),
 });
 
 export const turmaResponseSchema = z.object({
-  idTurma: z.string(),
+  id_turma: z.union([z.string(), z.number()]).transform(String), // Flexível para string ou number
   nome: z.string(),
   ano: z.string(),
-  idCurso: z.string(),
-  idSecretaria: z.string(),
+  id_curso: z.union([z.string(), z.number()]).transform(String),
+  id_secretaria: z.union([z.string(), z.number()]).transform(String),
+  turno: z.enum(['DIURNO', 'NOTURNO']),
+  situacao: z.string().optional().default('ATIVO'),
+  // Campos opcionais que podem vir do backend via JOIN
   alunos: z.array(z.object({
-    idAluno: z.string(),
+    id_aluno: z.string(),
     nome: z.string(),
     matricula: z.string(),
     email: z.string(),
     situacao: z.string(),
-  })),
+  })).optional().default([]),
 });
 
 // ===== TIPOS DERIVADOS =====
@@ -209,12 +210,10 @@ export type LoginFormData = z.infer<typeof loginSchema>;
 export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 export type ProfessorFormData = z.infer<typeof professorFormSchema>;
 export type ProfessorDTO = z.infer<typeof professorDTOSchema>;
-
 export type CursoFormData = z.infer<typeof cursoFormSchema>;
 export type CursoDTO = z.infer<typeof cursoDTOSchema>;
 export type CursoUpdateSituacao = z.infer<typeof cursoUpdateSituacaoSchema>;
 export type CursoResponse = z.infer<typeof cursoResponseSchema>;
-
 export type TurmaFormData = z.infer<typeof turmaFormSchema>;
 export type TurmaDTO = z.infer<typeof turmaDTOSchema>;
 export type TurmaResponse = z.infer<typeof turmaResponseSchema>;
@@ -224,10 +223,10 @@ export const validateLoginForm = (data: unknown) => loginSchema.safeParse(data);
 export const validateProfessorForm = (data: unknown) => professorFormSchema.safeParse(data);
 export const validateTurmaForm = (data: unknown) => turmaFormSchema.safeParse(data);
 export const validateTurmaDTO = (data: unknown) => turmaDTOSchema.safeParse(data);
-
 export const validateCursoForm = (data: unknown) => cursoFormSchema.safeParse(data);
 export const validateCursoDTO = (data: unknown) => cursoDTOSchema.safeParse(data);
 export const validateCursoUpdateSituacao = (data: unknown) => cursoUpdateSituacaoSchema.safeParse(data);
+export const validateCursoResponse = (data: unknown) => cursoResponseSchema.safeParse(data);
 
 // ===== UTILITÁRIOS DE FORMATAÇÃO =====
 export const cleanCPF = (cpf: string): string => cpf.replace(/[^\d]/g, '');
@@ -235,22 +234,5 @@ export const cleanPhone = (phone: string): string => phone.replace(/[^\d]/g, '')
 
 export const formatCPF = (cpf: string): string => {
   const clean = cleanCPF(cpf);
-  if (clean.length !== 11) return cpf;
   return clean.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
 };
-
-export const formatPhone = (phone: string): string => {
-  const clean = cleanPhone(phone);
-  if (clean.length === 11) {
-    return clean.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
-  } else if (clean.length === 10) {
-    return clean.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
-  }
-  return phone;
-};
-
-// ===== VALIDADORES DE DOMÍNIO =====
-export const isValidCPF = validateCPF;
-export const isValidPhone = validatePhone;
-export const isValidEmail = (email: string): boolean => emailValidator.safeParse(email).success;
-export const isValidPassword = (password: string): boolean => passwordValidator.safeParse(password).success;

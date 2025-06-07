@@ -1,4 +1,4 @@
-// src/hooks/secretaria/curso/index.ts - HOOK COMPLETO FINAL
+// src/hooks/secretaria/curso/index.ts - VERSÃO CORRIGIDA COM ENDPOINTS CORRETOS
 
 import { useState, useContext, useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -13,8 +13,8 @@ import {
   type CursoUpdateSituacao,
 } from '@/schemas';
 
-// ===== INTERFACES LOCAIS (NÃO EXPORTADAS) =====
-interface CursoFormProps {
+// ===== INTERFACES =====
+export interface CursoFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
 }
@@ -38,23 +38,10 @@ interface UseCursoListReturn {
 
 interface UseCursoActionsReturn {
   updateSituacao: (cursoId: number, situacao: 'ATIVO' | 'INATIVO') => Promise<void>;
-  getCurso: (cursoId: number) => Promise<CursoResponse | null>;
-  deleteCurso: (cursoId: number) => Promise<void>;
   loading: boolean;
   error: string | null;
   successMessage: string | null;
   clearMessages: () => void;
-}
-
-interface CursoSearchReturn {
-  searchId: string;
-  setSearchId: (id: string) => void;
-  curso: CursoResponse | null;
-  loading: boolean;
-  error: string | null;
-  handleSearch: () => void;
-  handleClear: () => void;
-  clearError: () => void;
 }
 
 interface UseCursoFormOptions {
@@ -68,7 +55,6 @@ function handleCursoError(error: unknown, context: string): string {
   
   const { message, status } = handleApiError(error, context);
   
-  // Mensagens específicas para curso
   switch (status) {
     case 400:
       if (message.includes('nome') || message.includes('name')) {
@@ -86,9 +72,7 @@ function handleCursoError(error: unknown, context: string): string {
       return 'Sem permissão para realizar esta ação.';
     
     case 404:
-      return context.includes('Get') || context.includes('Update') || context.includes('Delete')
-        ? 'Curso não encontrado.'
-        : 'Nenhum curso encontrado para esta secretaria.';
+      return 'Curso não encontrado.';
     
     case 409:
       return 'Já existe um curso com este nome.';
@@ -105,26 +89,54 @@ function handleCursoError(error: unknown, context: string): string {
 }
 
 function mapCursoResponse(curso: any): CursoResponse {
-  return {
-    id_curso: Number(curso.id_curso),
-    nome: curso.nome,
-    duracao: Number(curso.duracao),
-    id_secretaria: String(curso.id_secretaria),
-    situacao: curso.situacao || 'ATIVO'
-    // ❌ data_alteracao - NÃO incluir no front
+  if (!curso) {
+    throw new Error('Dados do curso inválidos');
+  }
+
+  // Log para debug
+  console.log('🔍 [MAP CURSO] Dados recebidos:', curso);
+
+  const id_curso = curso.id_curso || curso.idCurso || curso.id;
+  const nome = curso.nome || '';
+  const duracao = curso.duracao || 0;
+  const id_secretaria = curso.id_secretaria || curso.idSecretaria || '';
+  const situacao = curso.situacao || 'ATIVO';
+
+  // Validações com logs
+  if (!id_curso) {
+    console.error('❌ [MAP CURSO] ID do curso não encontrado em:', curso);
+    throw new Error('ID do curso não encontrado');
+  }
+  if (!nome || nome.trim() === '') {
+    console.error('❌ [MAP CURSO] Nome do curso não encontrado em:', curso);
+    throw new Error('Nome do curso não encontrado');
+  }
+  if (!duracao || Number(duracao) <= 0) {
+    console.error('❌ [MAP CURSO] Duração do curso inválida em:', curso);
+    throw new Error('Duração do curso inválida');
+  }
+
+  const cursoMapeado = {
+    id_curso: Number(id_curso),
+    nome: String(nome).trim(),
+    duracao: Number(duracao),
+    id_secretaria: String(id_secretaria),
+    situacao: situacao as 'ATIVO' | 'INATIVO'
   };
+
+  console.log('✅ [MAP CURSO] Curso mapeado:', cursoMapeado);
+  return cursoMapeado;
 }
 
 function validateCursoData(curso: any): boolean {
-  const hasValidId = curso.id_curso !== undefined && 
-                    curso.id_curso !== null && 
-                    (typeof curso.id_curso === 'number' || 
-                     !isNaN(parseInt(String(curso.id_curso), 10)));
+  if (!curso) return false;
   
-  const hasValidNome = curso.nome && typeof curso.nome === 'string' && curso.nome.trim() !== '';
-  const hasValidDuracao = curso.duracao && Number(curso.duracao) > 0;
-  
-  return hasValidId && hasValidNome && hasValidDuracao;
+  try {
+    mapCursoResponse(curso);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ===== HOOK: FORMULÁRIO DE CURSO =====
@@ -151,10 +163,9 @@ export const useCursoForm = ({
     setError(null);
   }, []);
 
+  // POST /curso/{id_secretaria}
   const onSubmit = useCallback(
     async (data: CursoFormData): Promise<void> => {
-      console.log('📝 [CURSO FORM] Dados do formulário:', data);
-
       if (!user?.id) {
         setError('ID da secretaria não encontrado. Faça login novamente.');
         return;
@@ -165,7 +176,6 @@ export const useCursoForm = ({
 
       try {
         const cursoDTO = transformCursoFormToDTO(data, user.id);
-        console.log('📤 [CURSO FORM] Enviando dados:', cursoDTO);
         
         const api = getAPIClient();
         const response = await api.post(`/curso/${user.id}`, cursoDTO);
@@ -173,7 +183,6 @@ export const useCursoForm = ({
         console.log('✅ [CURSO FORM] Curso criado:', response.data);
         setSuccessMessage('Curso cadastrado com sucesso!');
         
-        // Reset do formulário
         form.reset({
           nome: '',
           duracao: 1,
@@ -209,12 +218,9 @@ export const useCursoList = (): UseCursoListReturn => {
 
   const clearError = useCallback(() => setError(null), []);
 
+  // GET /curso/{id_secretaria}/secretaria
   const fetchCursos = useCallback(async (): Promise<void> => {
-    console.log('🔍 [CURSO LIST] Iniciando fetchCursos...');
-    console.log('👤 [CURSO LIST] User:', { id: user?.id, role: user?.role });
-
     if (!user?.id) {
-      console.log('❌ [CURSO LIST] Sem user.id, cancelando fetch');
       setError('ID da secretaria não encontrado. Faça login novamente.');
       return;
     }
@@ -224,40 +230,38 @@ export const useCursoList = (): UseCursoListReturn => {
 
     try {
       const api = getAPIClient();
-      
-      console.log(`📡 [CURSO LIST] Buscando cursos: /curso/${user.id}/secretaria`);
-      
       const response = await api.get(`/curso/${user.id}/secretaria`);
-      
-      console.log(`✅ [CURSO LIST] Resposta:`, response.data);
       
       if (!response.data) {
         setCursos([]);
         return;
       }
 
-      // Tentar extrair array de cursos da resposta
       let cursosData = response.data;
+      
       if (!Array.isArray(cursosData)) {
         if (cursosData.cursos && Array.isArray(cursosData.cursos)) {
           cursosData = cursosData.cursos;
         } else if (cursosData.data && Array.isArray(cursosData.data)) {
           cursosData = cursosData.data;
-        } else if (cursosData.content && Array.isArray(cursosData.content)) {
-          cursosData = cursosData.content;
         } else {
-          // Se response.data não é array e não tem propriedades conhecidas,
-          // assumir que é um único curso
           cursosData = [cursosData];
         }
       }
 
-      // Filtrar e mapear cursos válidos
-      const cursosValidos = cursosData
-        .filter(validateCursoData)
-        .map(mapCursoResponse);
+      const cursosValidos: CursoResponse[] = [];
+      
+      for (const curso of cursosData) {
+        try {
+          if (validateCursoData(curso)) {
+            const cursoMapeado = mapCursoResponse(curso);
+            cursosValidos.push(cursoMapeado);
+          }
+        } catch (mappingError) {
+          console.warn('⚠️ [CURSO LIST] Erro ao mapear curso:', curso, mappingError);
+        }
+      }
 
-      console.log(`✅ [CURSO LIST] Cursos válidos: ${cursosValidos.length}/${cursosData.length}`);
       setCursos(cursosValidos);
       
     } catch (err: unknown) {
@@ -270,17 +274,13 @@ export const useCursoList = (): UseCursoListReturn => {
   }, [user?.id]);
 
   const refetch = useCallback(() => {
-    console.log('🔄 [CURSO LIST] Refetch solicitado');
     clearError();
     fetchCursos();
   }, [fetchCursos, clearError]);
 
   useEffect(() => {
-    console.log('🔄 [CURSO LIST] useEffect disparado, user.id:', user?.id);
     if (user?.id) {
       fetchCursos();
-    } else {
-      console.log('⏭️ [CURSO LIST] Sem user.id, pulando fetch inicial');
     }
   }, [user?.id, fetchCursos]);
 
@@ -304,17 +304,25 @@ export const useCursoActions = (): UseCursoActionsReturn => {
     setSuccessMessage(null);
   }, []);
 
-  // ✅ ATUALIZAR SITUAÇÃO DO CURSO
+  // PUT /curso/{id_curso}/situacao
   const updateSituacao = useCallback(async (
     cursoId: number, 
     situacao: 'ATIVO' | 'INATIVO'
   ): Promise<void> => {
+    // Logs detalhados para debug
+    console.log('🔄 [UPDATE SITUACAO] Iniciando atualização...');
+    console.log('📋 [UPDATE SITUACAO] Curso ID:', cursoId, typeof cursoId);
+    console.log('📋 [UPDATE SITUACAO] Situação:', situacao, typeof situacao);
+
     if (!cursoId || cursoId <= 0) {
+      console.error('❌ [UPDATE SITUACAO] ID do curso inválido:', cursoId);
       setError('ID do curso inválido');
       return;
     }
 
-    if (!['ATIVO', 'INATIVO'].includes(situacao)) {
+    // Validação rigorosa da situação
+    if (!situacao || !['ATIVO', 'INATIVO'].includes(situacao)) {
+      console.error('❌ [UPDATE SITUACAO] Situação inválida:', situacao);
       setError('Situação deve ser ATIVO ou INATIVO');
       return;
     }
@@ -323,175 +331,52 @@ export const useCursoActions = (): UseCursoActionsReturn => {
     setError(null);
 
     try {
-      const updateDTO: CursoUpdateSituacao = { situacao };
-      console.log('📤 [CURSO UPDATE] Atualizando situação:', { cursoId, updateDTO });
+      // Garantir que a situação está exatamente como esperado
+      const updateDTO: CursoUpdateSituacao = { 
+        situacao: situacao.toUpperCase() as 'ATIVO' | 'INATIVO'
+      };
+      
+      console.log('📤 [UPDATE SITUACAO] Enviando para API:', {
+        url: `/curso/${cursoId}/situacao`,
+        body: updateDTO
+      });
       
       const api = getAPIClient();
       const response = await api.put(`/curso/${cursoId}/situacao`, updateDTO);
       
-      console.log('✅ [CURSO UPDATE] Situação atualizada:', response.data);
+      console.log('✅ [UPDATE SITUACAO] Resposta da API:', response.data);
+      console.log('✅ [UPDATE SITUACAO] Status da resposta:', response.status);
+      
       setSuccessMessage(`Curso ${situacao.toLowerCase()} com sucesso!`);
       
     } catch (err: unknown) {
+      console.error('❌ [UPDATE SITUACAO] Erro completo:', err);
+      
+      // Log detalhado do erro
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as any;
+        console.error('❌ [UPDATE SITUACAO] Status:', axiosError.response?.status);
+        console.error('❌ [UPDATE SITUACAO] Data:', axiosError.response?.data);
+        console.error('❌ [UPDATE SITUACAO] Headers:', axiosError.response?.headers);
+      }
+      
       const errorMessage = handleCursoError(err, 'UpdateCursoSituacao');
       setError(errorMessage);
-      throw err; // Re-throw para componente tratar
+      throw err;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // ✅ BUSCAR CURSO ESPECÍFICO
-  const getCurso = useCallback(async (cursoId: number): Promise<CursoResponse | null> => {
-    if (!cursoId || cursoId <= 0) {
-      setError('ID do curso inválido');
-      return null;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      console.log('🔍 [CURSO GET] Buscando curso:', cursoId);
-      
-      const api = getAPIClient();
-      const response = await api.get(`/curso/${cursoId}`);
-      
-      console.log('✅ [CURSO GET] Curso encontrado:', response.data);
-      
-      if (!response.data) {
-        throw new Error('Curso não encontrado');
-      }
-
-      if (!validateCursoData(response.data)) {
-        throw new Error('Dados do curso inválidos');
-      }
-
-      const curso = mapCursoResponse(response.data);
-      return curso;
-      
-    } catch (err: unknown) {
-      const errorMessage = handleCursoError(err, 'GetCurso');
-      setError(errorMessage);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // ✅ DELETAR CURSO (se endpoint existir)
-  const deleteCurso = useCallback(async (cursoId: number): Promise<void> => {
-    if (!cursoId || cursoId <= 0) {
-      setError('ID do curso inválido');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      console.log('🗑️ [CURSO DELETE] Deletando curso:', cursoId);
-      
-      const api = getAPIClient();
-      const response = await api.delete(`/curso/${cursoId}`);
-      
-      console.log('✅ [CURSO DELETE] Curso deletado:', response.data);
-      setSuccessMessage('Curso deletado com sucesso!');
-      
-    } catch (err: unknown) {
-      const errorMessage = handleCursoError(err, 'DeleteCurso');
-      setError(errorMessage);
-      throw err; // Re-throw para componente tratar
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // DELETE /curso/{id_curso} - REMOVIDO (endpoint não existe)
+  // Funcionalidade de deletar removida
 
   return {
     updateSituacao,
-    getCurso,
-    deleteCurso,
     loading,
     error,
     successMessage,
     clearMessages,
-  };
-};
-
-// ===== HOOK: BUSCAR CURSO =====
-export const useCursoSearch = (): CursoSearchReturn => {
-  const [searchId, setSearchId] = useState('');
-  const [curso, setCurso] = useState<CursoResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const clearError = useCallback(() => setError(null), []);
-
-  const handleSearch = useCallback(async (): Promise<void> => {
-    const trimmedId = searchId.trim();
-    
-    if (!trimmedId) {
-      setError('Digite um ID para buscar');
-      return;
-    }
-
-    const cursoId = parseInt(trimmedId, 10);
-    if (isNaN(cursoId) || cursoId <= 0) {
-      setError('ID do curso deve ser um número válido');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setCurso(null);
-
-    try {
-      console.log(`🔍 [CURSO SEARCH] Buscando curso ID: ${cursoId}`);
-      
-      const api = getAPIClient();
-      const response = await api.get(`/curso/${cursoId}`);
-      
-      console.log('✅ [CURSO SEARCH] Curso encontrado:', response.data);
-      
-      if (!response.data) {
-        throw new Error('Curso não encontrado');
-      }
-
-      if (!validateCursoData(response.data)) {
-        throw new Error('Dados do curso inválidos');
-      }
-
-      const cursoData = mapCursoResponse(response.data);
-      setCurso(cursoData);
-      
-    } catch (err: unknown) {
-      const errorMessage = handleCursoError(err, 'SearchCurso');
-      if (errorMessage.includes('não encontrado') || errorMessage.includes('404')) {
-        setError(`Curso com ID "${trimmedId}" não encontrado`);
-      } else {
-        setError(errorMessage);
-      }
-      setCurso(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [searchId]);
-
-  const handleClear = useCallback(() => {
-    setSearchId('');
-    setCurso(null);
-    setError(null);
-  }, []);
-
-  return {
-    searchId,
-    setSearchId,
-    curso,
-    loading,
-    error,
-    handleSearch,
-    handleClear,
-    clearError,
   };
 };
 
@@ -500,28 +385,19 @@ export const useCursoManager = () => {
   const form = useCursoForm();
   const list = useCursoList();
   const actions = useCursoActions();
-  const search = useCursoSearch();
 
-  // Função para recarregar lista após operações
   const refreshList = useCallback(() => {
     list.refetch();
   }, [list.refetch]);
 
-  // Wrapper para operações que afetam a lista
   const wrapperActions = {
     ...actions,
     updateSituacao: useCallback(async (cursoId: number, situacao: 'ATIVO' | 'INATIVO') => {
       await actions.updateSituacao(cursoId, situacao);
       refreshList();
     }, [actions.updateSituacao, refreshList]),
-    
-    deleteCurso: useCallback(async (cursoId: number) => {
-      await actions.deleteCurso(cursoId);
-      refreshList();
-    }, [actions.deleteCurso, refreshList]),
   };
 
-  // Form wrapper que recarrega lista após sucesso
   const formWithRefresh = {
     ...form,
     onSubmit: useCallback(async (data: CursoFormData) => {
@@ -534,10 +410,6 @@ export const useCursoManager = () => {
     form: formWithRefresh,
     list,
     actions: wrapperActions,
-    search,
     refreshList,
   };
 };
-
-// ===== EXPORTS APENAS DOS HOOKS =====
-// Interfaces já existem em outros arquivos, exportando apenas as funções

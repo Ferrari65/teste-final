@@ -1,12 +1,12 @@
-// src/components/secretaria/home/curso/ListarCursos.tsx - SEM TURNO
+// src/components/secretaria/home/curso/ListarCursos.tsx - COM AÇÕES FUNCIONAIS
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useCursoList } from '@/hooks/secretaria/curso';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useCursoList, useCursoActions } from '@/hooks/secretaria/curso';
 import { LoadingSpinner } from '@/components/ui/loading/LoadingSpinner';
 
-const CURSOS_POR_PAGINA = 5;
+const CURSOS_POR_PAGINA = 8;
 
 interface PaginationProps {
   currentPage: number;
@@ -76,7 +76,6 @@ const Pagination: React.FC<PaginationProps> = ({
 
         <div>
           <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-            {/* Botão Anterior */}
             <button
               onClick={() => onPageChange(currentPage - 1)}
               disabled={currentPage === 1}
@@ -88,7 +87,6 @@ const Pagination: React.FC<PaginationProps> = ({
               </svg>
             </button>
 
-            {/* Páginas */}
             {visiblePages.map((page) => (
               <button
                 key={page}
@@ -103,7 +101,6 @@ const Pagination: React.FC<PaginationProps> = ({
               </button>
             ))}
 
-            {/* Próxima página */}
             <button
               onClick={() => onPageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
@@ -122,19 +119,48 @@ const Pagination: React.FC<PaginationProps> = ({
 };
 
 export default function ListarCursos() {
-  const { cursos, loading, error, refetch } = useCursoList();
+  const { cursos, loading, error, refetch, clearError } = useCursoList();
+  const { updateSituacao, loading: actionLoading, successMessage, error: actionError, clearMessages } = useCursoActions();
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortField, setSortField] = useState<'nome' | 'duracao' | 'situacao'>('nome');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  const totalCursos = cursos.length;
+  // Função de ordenação
+  const sortedCursos = useMemo(() => {
+    if (!cursos || cursos.length === 0) return [];
+
+    return [...cursos].sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      if (sortField === 'nome') {
+        aValue = (aValue as string).toLowerCase();
+        bValue = (bValue as string).toLowerCase();
+      } else if (sortField === 'duracao') {
+        aValue = Number(aValue);
+        bValue = Number(bValue);
+      }
+
+      if (aValue < bValue) {
+        return sortDirection === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortDirection === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+  }, [cursos, sortField, sortDirection]);
+
+  const totalCursos = sortedCursos.length;
   const totalPages = Math.ceil(totalCursos / CURSOS_POR_PAGINA);
   
   const cursosExibidos = useMemo(() => {
     const startIndex = (currentPage - 1) * CURSOS_POR_PAGINA;
     const endIndex = startIndex + CURSOS_POR_PAGINA;
-    return cursos.slice(startIndex, endIndex);
-  }, [cursos, currentPage]);
+    return sortedCursos.slice(startIndex, endIndex);
+  }, [sortedCursos, currentPage]);
 
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
       document.getElementById('tabela-cursos')?.scrollIntoView({ 
@@ -142,11 +168,70 @@ export default function ListarCursos() {
         block: 'start' 
       });
     }
-  };
+  }, [totalPages]);
 
-  const handleRefetch = () => {
+  const handleRefetch = useCallback(() => {
     setCurrentPage(1); 
+    clearError();
+    clearMessages();
     refetch();
+  }, [refetch, clearError, clearMessages]);
+
+  const handleSort = useCallback((field: 'nome' | 'duracao' | 'situacao') => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  }, [sortField]);
+
+  const handleToggleSituacao = useCallback(async (curso: any) => {
+    const novaSituacao = curso.situacao === 'ATIVO' ? 'INATIVO' : 'ATIVO';
+    
+    // Log para debug
+    console.log('🔄 [TOGGLE SITUACAO] Dados do curso:', curso);
+    console.log('🔄 [TOGGLE SITUACAO] ID do curso:', curso.id_curso, typeof curso.id_curso);
+    console.log('🔄 [TOGGLE SITUACAO] Nova situação:', novaSituacao);
+    
+    try {
+      // Garantir que o ID é um número válido
+      const cursoId = Number(curso.id_curso);
+      
+      if (isNaN(cursoId) || cursoId <= 0) {
+        console.error('❌ [TOGGLE SITUACAO] ID do curso inválido:', curso.id_curso);
+        return;
+      }
+      
+      await updateSituacao(cursoId, novaSituacao);
+      refetch(); // Recarregar lista após alteração
+    } catch (error) {
+      console.error('❌ [TOGGLE SITUACAO] Erro:', error);
+      // Erro já é tratado no hook
+    }
+  }, [updateSituacao, refetch]);
+
+  // Função de deletar removida - endpoint não existe
+
+  const getSortIcon = (field: 'nome' | 'duracao' | 'situacao') => {
+    if (sortField !== field) {
+      return (
+        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        </svg>
+      );
+    }
+    
+    return sortDirection === 'asc' ? (
+      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+      </svg>
+    ) : (
+      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    );
   };
 
   if (loading) {
@@ -215,6 +300,50 @@ export default function ListarCursos() {
 
   return (
     <div className="space-y-4">
+      {/* Mensagens de ação */}
+      {(successMessage || actionError) && (
+        <div className="space-y-2">
+          {successMessage && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-sm text-green-700">{successMessage}</span>
+                <button
+                  onClick={clearMessages}
+                  className="ml-auto text-green-400 hover:text-green-600"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {actionError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <span className="text-sm text-red-700">{actionError}</span>
+                <button
+                  onClick={clearMessages}
+                  className="ml-auto text-red-400 hover:text-red-600"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Header com estatísticas e controles */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-teal-600 rounded-lg flex items-center justify-center">
@@ -224,7 +353,7 @@ export default function ListarCursos() {
           </div>
           <div>
             <h3 className="text-lg font-semibold text-gray-900">
-              Cursos Cadastrados
+              Lista de Cursos
             </h3>
             <p className="text-sm text-gray-600">
               {totalCursos} curso{totalCursos !== 1 ? 's' : ''} encontrado{totalCursos !== 1 ? 's' : ''}
@@ -237,16 +366,43 @@ export default function ListarCursos() {
           </div>
         </div>
         
-        <button 
-          onClick={handleRefetch}
-          disabled={loading}
-          className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Atualizar
-        </button>
+        <div className="flex items-center space-x-2">
+          {/* Ordenação rápida */}
+          <div className="flex items-center space-x-1 text-sm text-gray-600">
+            <span>Ordenar por:</span>
+            <button
+              onClick={() => handleSort('nome')}
+              className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                sortField === 'nome' 
+                  ? 'bg-blue-100 text-blue-700' 
+                  : 'hover:bg-gray-100'
+              }`}
+            >
+              Nome
+            </button>
+            <button
+              onClick={() => handleSort('duracao')}
+              className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                sortField === 'duracao' 
+                  ? 'bg-blue-100 text-blue-700' 
+                  : 'hover:bg-gray-100'
+              }`}
+            >
+              Duração
+            </button>
+          </div>
+          
+          <button 
+            onClick={handleRefetch}
+            disabled={loading}
+            className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Atualizar
+          </button>
+        </div>
       </div>
 
       {/* Tabela de Cursos */}
@@ -255,41 +411,125 @@ export default function ListarCursos() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Nome do Curso
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('nome')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Nome do Curso</span>
+                    {getSortIcon('nome')}
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Duração
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('duracao')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Duração</span>
+                    {getSortIcon('duracao')}
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('situacao')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Status</span>
+                    {getSortIcon('situacao')}
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ações
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {cursosExibidos.map((curso, index) => (
                 <tr 
-                  key={curso.id_curso || `curso-${index}`} 
+                  key={`curso-${curso.id_curso}-${index}`} 
                   className="hover:bg-gray-50 transition-colors"
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {curso.nome}
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0 h-8 w-8">
+                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                          <svg className="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="ml-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {curso.nome}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          ID: {curso.id_curso}
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {curso.duracao} {curso.duracao === 1 ? 'mês' : 'meses'}
+                    <div className="flex items-center">
+                      <div className="text-sm text-gray-900 font-medium">
+                        {curso.duracao}
+                      </div>
+                      <div className="text-sm text-gray-500 ml-1">
+                        {curso.duracao === 1 ? 'mês' : 'meses'}
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       curso.situacao === 'ATIVO' 
                         ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
+                        : curso.situacao === 'INATIVO'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-gray-100 text-gray-800'
                     }`}>
+                      <svg 
+                        className={`w-1.5 h-1.5 mr-1.5 ${
+                          curso.situacao === 'ATIVO' 
+                            ? 'text-green-400' 
+                            : curso.situacao === 'INATIVO'
+                            ? 'text-red-400'
+                            : 'text-gray-400'
+                        }`} 
+                        fill="currentColor" 
+                        viewBox="0 0 8 8"
+                      >
+                        <circle cx={4} cy={4} r={3} />
+                      </svg>
                       {curso.situacao}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex items-center justify-end">
+                      {/* Toggle Switch para Situação */}
+                      <div className="flex items-center space-x-3">
+                        <span className="text-sm text-gray-600">
+                          {curso.situacao === 'ATIVO' ? 'Ativo' : 'Inativo'}
+                        </span>
+                        <button
+                          onClick={() => handleToggleSituacao(curso)}
+                          disabled={actionLoading}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            curso.situacao === 'ATIVO' 
+                              ? 'bg-blue-600' 
+                              : 'bg-gray-200'
+                          }`}
+                          title={`${curso.situacao === 'ATIVO' ? 'Desativar' : 'Ativar'} curso`}
+                        >
+                          <span className="sr-only">
+                            {curso.situacao === 'ATIVO' ? 'Desativar' : 'Ativar'} curso
+                          </span>
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              curso.situacao === 'ATIVO' ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -305,6 +545,28 @@ export default function ListarCursos() {
           totalItems={totalCursos}
           itemsPerPage={CURSOS_POR_PAGINA}
         />
+      </div>
+
+      {/* Estatísticas resumidas */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
+          <div className="text-2xl font-bold text-blue-600">
+            {cursos.filter(c => c.situacao === 'ATIVO').length}
+          </div>
+          <div className="text-sm text-gray-500">Cursos Ativos</div>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
+          <div className="text-2xl font-bold text-red-600">
+            {cursos.filter(c => c.situacao === 'INATIVO').length}
+          </div>
+          <div className="text-sm text-gray-500">Cursos Inativos</div>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
+          <div className="text-2xl font-bold text-gray-600">
+            {Math.round(cursos.reduce((acc, c) => acc + c.duracao, 0) / cursos.length) || 0}
+          </div>
+          <div className="text-sm text-gray-500">Duração Média (meses)</div>
+        </div>
       </div>
     </div>
   );

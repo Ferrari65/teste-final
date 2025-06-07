@@ -1,6 +1,8 @@
+// src/components/secretaria/home/curso/CadastroCurso.tsx - TÍTULO ÚNICO
+
 'use client';
 
-import React from "react";
+import React, { useCallback } from "react";
 import { useCursoForm } from "@/hooks/secretaria/curso";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
 import { SuccessMessage } from "@/components/ui/SuccessMessage";
@@ -16,7 +18,32 @@ export default function CadastroCurso({ onSuccess, onCancel }: CursoFormProps) {
     error,
     successMessage,
     clearMessages
-  } = useCursoForm({ onSuccess });
+  } = useCursoForm({ 
+    onSuccess: useCallback(() => {
+      console.log('✅ [CADASTRO CURSO] Curso cadastrado com sucesso');
+      onSuccess?.();
+    }, [onSuccess])
+  });
+
+  // Handlers memoizados para melhor performance
+  const handleClearMessages = useCallback((): void => {
+    clearMessages();
+  }, [clearMessages]);
+
+  const handleFormSubmit = useCallback((event: React.FormEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    form.handleSubmit(onSubmit)(event);
+  }, [form, onSubmit]);
+
+  const handleCancel = useCallback((): void => {
+    // Limpar formulário ao cancelar
+    form.reset({
+      nome: '',
+      duracao: 1,
+    });
+    clearMessages();
+    onCancel?.();
+  }, [form, clearMessages, onCancel]);
 
   return (
     <div className="space-y-8">
@@ -65,23 +92,24 @@ export default function CadastroCurso({ onSuccess, onCancel }: CursoFormProps) {
             {successMessage && (
               <SuccessMessage 
                 message={successMessage} 
-                onClose={clearMessages}
+                onClose={handleClearMessages}
               />
             )}
 
             {error && (
               <ErrorMessage 
                 message={error}
-                onRetry={() => clearMessages()}
+                onRetry={handleClearMessages}
               />
             )}
           </div>
 
           {/* Formulário */}
           <form 
-            onSubmit={form.handleSubmit(onSubmit)} 
+            onSubmit={handleFormSubmit}
             className="space-y-6"
             noValidate
+            aria-describedby={error ? "error-message" : undefined}
           >
             {/* Campos do Formulário */}
             <CursoDataSection form={form} />
@@ -91,9 +119,10 @@ export default function CadastroCurso({ onSuccess, onCancel }: CursoFormProps) {
               {onCancel && (
                 <button
                   type="button"
-                  onClick={onCancel}
+                  onClick={handleCancel}
                   disabled={loading}
                   className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  aria-label="Cancelar cadastro do curso"
                 >
                   Cancelar
                 </button>
@@ -102,7 +131,8 @@ export default function CadastroCurso({ onSuccess, onCancel }: CursoFormProps) {
               <button
                 type="submit"
                 disabled={loading}
-                className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center min-w-[100px] justify-center"
+                className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center min-w-[120px] justify-center"
+                aria-describedby={loading ? "loading-message" : undefined}
               >
                 {loading ? (
                   <>
@@ -126,7 +156,7 @@ export default function CadastroCurso({ onSuccess, onCancel }: CursoFormProps) {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       />
                     </svg>
-                    <span>Salvando...</span>
+                    <span id="loading-message">Salvando...</span>
                     <span className="sr-only">Processando cadastro do curso...</span>
                   </>
                 ) : (
@@ -143,22 +173,43 @@ export default function CadastroCurso({ onSuccess, onCancel }: CursoFormProps) {
         className="bg-white rounded-lg shadow-sm border border-gray-200"
         aria-labelledby="lista-heading"
       >
-        <header className="px-6 py-4 border-b border-gray-200">
-          <h2 
-            id="lista-heading"
-            className="text-xl font-semibold text-gray-900"
-          >
-            Cursos Cadastrados
-          </h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Lista de todos os cursos registrados no sistema
-          </p>
-        </header>
-        
         <div className="p-6">
           <ListarCursos />
         </div>
       </section>
+
+      {/* Loading overlay global para formulário */}
+      {loading && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50"
+          aria-hidden="true"
+        >
+          <div className="bg-white rounded-lg p-6 flex items-center space-x-4 shadow-xl">
+            <svg 
+              className="animate-spin h-6 w-6 text-blue-600" 
+              fill="none" 
+              viewBox="0 0 24 24"
+            >
+              <circle 
+                className="opacity-25" 
+                cx="12" 
+                cy="12" 
+                r="10" 
+                stroke="currentColor" 
+                strokeWidth="4"
+              />
+              <path 
+                className="opacity-75" 
+                fill="currentColor" 
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+            <span className="text-gray-700 font-medium">
+              Processando cadastro do curso...
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

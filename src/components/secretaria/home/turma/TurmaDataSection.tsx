@@ -1,8 +1,8 @@
-// src/components/secretaria/home/turma/TurmaDataSection.tsx - CORRIGIDO
+// src/components/secretaria/home/turma/TurmaDataSection.tsx - VERSÃO COMPLETA SEM DEBUG
 
 'use client';
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useCursoList } from '@/hooks/secretaria/curso';
 import type { TurmaFormData } from '@/schemas';
@@ -14,37 +14,18 @@ interface TurmaDataSectionProps {
 export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
   const { register, formState: { errors }, watch } = form;
   
-  // ✅ USAR O HOOK CORRIGIDO QUE TENTA MÚLTIPLOS ENDPOINTS
+  // Hook de cursos com tratamento de erro aprimorado
   const { cursos, loading: cursosLoading, error: cursosError, refetch, clearError } = useCursoList();
   
   // Observa os valores selecionados
   const cursoSelecionado = watch('id_curso');
   const turnoSelecionado = watch('turno');
+  const nomeValue = watch('nome');
+  const anoValue = watch('ano');
   
-  // Debug completo
-  useEffect(() => {
-    console.log('🔍 [TURMA DATA SECTION] Estado atual:');
-    console.log('📊 Cursos:', cursos);
-    console.log('⏳ Loading:', cursosLoading);
-    console.log('❌ Error:', cursosError);
-    console.log('📏 Quantidade de cursos:', cursos?.length || 0);
-    
-    if (cursosError) {
-      console.error('🚫 [TURMA DATA SECTION] Erro detalhado:', cursosError);
-    }
-    
-    if (cursos && cursos.length > 0) {
-      console.log('📚 [TURMA DATA SECTION] Primeiro curso:', cursos[0]);
-      console.log('🔑 [TURMA DATA SECTION] Chaves do primeiro curso:', Object.keys(cursos[0]));
-    }
-  }, [cursos, cursosLoading, cursosError]);
-  
-  // ✅ FILTRO DEFENSIVO DOS CURSOS
-  const cursosValidos = cursos.filter((curso, index) => {
-    if (!curso) {
-      console.log(`❌ [TURMA DATA SECTION] Curso ${index}: null/undefined`);
-      return false;
-    }
+  // Filtro defensivo e validação de cursos
+  const cursosValidos = cursos.filter((curso) => {
+    if (!curso) return false;
     
     const hasValidId = curso.id_curso !== undefined && 
                       curso.id_curso !== null && 
@@ -52,17 +33,9 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
                        (typeof curso.id_curso === 'string' && !isNaN(parseInt(curso.id_curso, 10))));
     
     const hasValidNome = curso.nome && typeof curso.nome === 'string' && curso.nome.trim() !== '';
+    const hasValidDuracao = curso.duracao && typeof curso.duracao === 'number' && curso.duracao > 0;
     
-    console.log(`🔍 [TURMA DATA SECTION] Curso ${index}:`, {
-      curso,
-      id_curso: curso.id_curso,
-      nome: curso.nome,
-      hasValidId,
-      hasValidNome,
-      isValid: hasValidId && hasValidNome
-    });
-    
-    return hasValidId && hasValidNome;
+    return hasValidId && hasValidNome && hasValidDuracao;
   });
 
   // Buscar curso selecionado
@@ -70,10 +43,11 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
     String(curso.id_curso) === String(cursoSelecionado)
   );
 
-  console.log('✅ [TURMA DATA SECTION] Resultado do filtro:');
-  console.log('📊 Cursos válidos:', cursosValidos.length);
-  console.log('📋 Curso selecionado:', cursoSelecionado);
-  console.log('📝 Detalhes do curso:', cursoDetalhes);
+  // Handler para recarregar cursos
+  const handleReloadCursos = () => {
+    if (clearError) clearError();
+    refetch();
+  };
 
   return (
     <div className="space-y-6">
@@ -96,6 +70,7 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
                 : 'border-gray-300 focus:ring-purple-500 focus:border-purple-500'
             }`}
             placeholder="Ex: Turma ADS 2024-1"
+            autoComplete="off"
           />
           {errors.nome && (
             <span className="text-sm text-red-600">{errors.nome.message}</span>
@@ -119,6 +94,8 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
             }`}
             placeholder="Ex: 2024"
             maxLength={4}
+            pattern="\d{4}"
+            autoComplete="off"
           />
           {errors.ano && (
             <span className="text-sm text-red-600">{errors.ano.message}</span>
@@ -126,14 +103,14 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
           <span className="text-xs text-gray-500">Ano letivo (4 dígitos)</span>
         </div>
 
-        {/* Seletor de Curso - COM ERROR HANDLING MELHORADO */}
+        {/* Seletor de Curso */}
         <div className="space-y-1">
           <label className="block text-sm font-medium text-gray-700">
             Curso
             <span className="text-red-500 ml-1">*</span>
           </label>
           
-          {/* Mensagem de erro detalhada */}
+          {/* Mensagem de erro com opção de recarregar */}
           {cursosError && (
             <div className="mb-2 p-3 bg-red-50 border border-red-200 rounded text-sm">
               <div className="flex items-start gap-3">
@@ -147,13 +124,26 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
                   <div className="mt-1 text-red-700">{cursosError}</div>
                   <button
                     type="button"
-                    onClick={() => {
-                      clearError();
-                      refetch();
-                    }}
-                    className="mt-2 text-sm text-red-600 hover:text-red-500 underline focus:outline-none"
+                    onClick={handleReloadCursos}
+                    disabled={cursosLoading}
+                    className="mt-2 inline-flex items-center px-3 py-1 text-sm text-red-600 hover:text-red-500 border border-red-300 rounded hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    Tentar novamente
+                    {cursosLoading ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-3 w-3" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Carregando...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Tentar novamente
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -194,6 +184,17 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
             <span className="text-sm text-red-600">{errors.id_curso.message}</span>
           )}
           
+          {/* Loading indicator dentro do select */}
+          {cursosLoading && (
+            <div className="mt-2 flex items-center text-sm text-gray-600">
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Carregando cursos...
+            </div>
+          )}
+          
           {/* Aviso se não há cursos */}
           {!cursosLoading && !cursosError && cursosValidos.length === 0 && cursos.length === 0 && (
             <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
@@ -210,6 +211,16 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Estatísticas dos cursos carregados */}
+          {!cursosLoading && !cursosError && cursos.length > 0 && cursosValidos.length !== cursos.length && (
+            <div className="mt-1 text-xs text-gray-500">
+              {cursosValidos.length} de {cursos.length} cursos válidos carregados
+              <span className="text-amber-600 ml-1">
+                ({cursos.length - cursosValidos.length} cursos com dados inválidos)
+              </span>
             </div>
           )}
         </div>
@@ -243,59 +254,68 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
       </div>
       
       {/* Preview da turma */}
-      {(cursoDetalhes || turnoSelecionado) && (
+      {(nomeValue || anoValue || cursoDetalhes || turnoSelecionado) && (
         <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-          <h3 className="text-sm font-medium text-gray-900 mb-2">📋 Preview da Turma</h3>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-gray-600">Nome:</span> 
-              <span className="ml-1 font-medium">{watch('nome') || 'Não informado'}</span>
+          <h3 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+            <svg className="w-4 h-4 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Preview da Turma
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="flex justify-between items-center py-1">
+              <span className="text-gray-600 font-medium">Nome:</span> 
+              <span className="text-gray-900 font-medium">
+                {nomeValue || <span className="text-gray-400 italic">Não informado</span>}
+              </span>
             </div>
-            <div>
-              <span className="text-gray-600">Ano:</span> 
-              <span className="ml-1 font-medium">{watch('ano') || 'Não informado'}</span>
+            <div className="flex justify-between items-center py-1">
+              <span className="text-gray-600 font-medium">Ano:</span> 
+              <span className="text-gray-900 font-medium">
+                {anoValue || <span className="text-gray-400 italic">Não informado</span>}
+              </span>
             </div>
             {cursoDetalhes && (
-              <div>
-                <span className="text-gray-600">Curso:</span> 
-                <span className="ml-1 font-medium">
-                  {cursoDetalhes.nome} ({cursoDetalhes.duracao} meses)
+              <div className="flex justify-between items-center py-1">
+                <span className="text-gray-600 font-medium">Curso:</span> 
+                <span className="text-gray-900 font-medium">
+                  {cursoDetalhes.nome}
                 </span>
               </div>
             )}
-            <div>
-              <span className="text-gray-600">Turno:</span> 
-              <span className="ml-1 font-medium">
+            {cursoDetalhes && (
+              <div className="flex justify-between items-center py-1">
+                <span className="text-gray-600 font-medium">Duração:</span> 
+                <span className="text-gray-900 font-medium">
+                  {cursoDetalhes.duracao} {cursoDetalhes.duracao === 1 ? 'mês' : 'meses'}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between items-center py-1">
+              <span className="text-gray-600 font-medium">Turno:</span> 
+              <span className="text-gray-900 font-medium">
                 {turnoSelecionado === 'DIURNO' ? '🌅 Diurno' : 
                  turnoSelecionado === 'NOTURNO' ? '🌙 Noturno' : 
-                 'Não informado'}
+                 <span className="text-gray-400 italic">Não informado</span>}
               </span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Debug Panel - REMOVER EM PRODUÇÃO */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-xs">
-          <h4 className="font-bold mb-2">🐛 Debug Info:</h4>
-          <div className="space-y-1">
-            <div><strong>Loading:</strong> {cursosLoading ? 'true' : 'false'}</div>
-            <div><strong>Error:</strong> {cursosError || 'null'}</div>
-            <div><strong>Total cursos:</strong> {cursos.length}</div>
-            <div><strong>Cursos válidos:</strong> {cursosValidos.length}</div>
-            <div><strong>Endpoints tentados:</strong> múltiplos (ver console)</div>
-            <button
-              type="button"
-              onClick={() => {
-                console.table(cursos);
-                console.log('Cursos válidos:', cursosValidos);
-              }}
-              className="mt-2 px-2 py-1 bg-yellow-200 text-yellow-800 text-xs rounded hover:bg-yellow-300"
-            >
-              Log cursos no console
-            </button>
-          </div>
+      {/* Botão para recarregar cursos manualmente */}
+      {!cursosLoading && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={handleReloadCursos}
+            className="inline-flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Recarregar Cursos
+          </button>
         </div>
       )}
     </div>
