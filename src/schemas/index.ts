@@ -120,9 +120,13 @@ export const professorDTOSchema = z.object({
   id_secretaria: z.string(),
 });
 
-// ===== SCHEMAS DE CURSO - REMOVIDO TURNO =====
+// ===== SCHEMAS DE CURSO - AJUSTADO PARA SUA TABELA =====
 export const cursoFormSchema = z.object({
-  nome: nameValidator,
+  nome: z.string()
+    .min(1, 'Nome do curso é obrigatório')
+    .min(3, 'Nome do curso deve ter pelo menos 3 caracteres')
+    .max(100, 'Nome do curso deve ter no máximo 100 caracteres')
+    .trim(),
   duracao: z
     .union([
       z.string().min(1, 'Duração é obrigatória'),
@@ -135,23 +139,31 @@ export const cursoFormSchema = z.object({
       }
       return num;
     }),
-  // ❌ REMOVIDO: turno não faz parte do curso
 });
 
+// ✅ DTO PARA CRIAÇÃO - BASEADO NO SEU ENDPOINT POST
 export const cursoDTOSchema = z.object({
   nome: z.string(),
   duracao: z.number().positive('Duração deve ser positiva'),
-  // ❌ REMOVIDO: turno
-  id_secretaria: z.number().positive(),
+  situacao: z.literal('ATIVO').default('ATIVO'),
+  id_secretaria: z.string(), // Conforme sua tabela é text
 });
 
+// ✅ DTO PARA ATUALIZAÇÃO DE SITUAÇÃO - BASEADO NO SEU ENDPOINT PUT
+export const cursoUpdateSituacaoSchema = z.object({
+  situacao: z.enum(['ATIVO', 'INATIVO'], {
+    errorMap: () => ({ message: 'Situação deve ser ATIVO ou INATIVO' }),
+  }),
+});
+
+// ✅ RESPONSE SCHEMA - SEM DATA_ALTERACAO (não mostrar no front)
 export const cursoResponseSchema = z.object({
-  id_curso: z.number(),
+  id_curso: z.union([z.string(), z.number()]).transform(val => Number(val)),
   nome: z.string(),
-  duracao: z.number(),
-  // ❌ REMOVIDO: turno
-  id_secretaria: z.number(),
-  situacao: z.enum(['ATIVO', 'INATIVO']).optional(),
+  duracao: z.number().positive(),
+  id_secretaria: z.string(),
+  situacao: z.enum(['ATIVO', 'INATIVO']).optional().default('ATIVO'),
+  // ❌ data_alteracao - NÃO incluir no front
 });
 
 // ===== SCHEMAS DE TURMA - SIMPLIFICADO =====
@@ -197,9 +209,12 @@ export type LoginFormData = z.infer<typeof loginSchema>;
 export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 export type ProfessorFormData = z.infer<typeof professorFormSchema>;
 export type ProfessorDTO = z.infer<typeof professorDTOSchema>;
+
 export type CursoFormData = z.infer<typeof cursoFormSchema>;
 export type CursoDTO = z.infer<typeof cursoDTOSchema>;
+export type CursoUpdateSituacao = z.infer<typeof cursoUpdateSituacaoSchema>;
 export type CursoResponse = z.infer<typeof cursoResponseSchema>;
+
 export type TurmaFormData = z.infer<typeof turmaFormSchema>;
 export type TurmaDTO = z.infer<typeof turmaDTOSchema>;
 export type TurmaResponse = z.infer<typeof turmaResponseSchema>;
@@ -207,10 +222,12 @@ export type TurmaResponse = z.infer<typeof turmaResponseSchema>;
 // ===== FUNÇÕES DE VALIDAÇÃO =====
 export const validateLoginForm = (data: unknown) => loginSchema.safeParse(data);
 export const validateProfessorForm = (data: unknown) => professorFormSchema.safeParse(data);
-export const validateCursoForm = (data: unknown) => cursoFormSchema.safeParse(data);
-export const validateCursoDTO = (data: unknown) => cursoDTOSchema.safeParse(data);
 export const validateTurmaForm = (data: unknown) => turmaFormSchema.safeParse(data);
 export const validateTurmaDTO = (data: unknown) => turmaDTOSchema.safeParse(data);
+
+export const validateCursoForm = (data: unknown) => cursoFormSchema.safeParse(data);
+export const validateCursoDTO = (data: unknown) => cursoDTOSchema.safeParse(data);
+export const validateCursoUpdateSituacao = (data: unknown) => cursoUpdateSituacaoSchema.safeParse(data);
 
 // ===== UTILITÁRIOS DE FORMATAÇÃO =====
 export const cleanCPF = (cpf: string): string => cpf.replace(/[^\d]/g, '');

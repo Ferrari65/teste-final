@@ -5,6 +5,7 @@ import {
   ProfessorDTO,
   CursoFormData,
   CursoDTO,
+  CursoUpdateSituacao,
   TurmaFormData,
   TurmaDTO,
   cleanCPF,
@@ -50,13 +51,28 @@ export const transformProfessorFormToDTO = (
   };
 };
 
-// ===== CURSO - REMOVIDO TURNO =====
+// ===== CURSO - CORRIGIDO PARA SUA TABELA =====
 export const transformCursoFormToDTO = (
   data: CursoFormData,
   secretariaId: string
 ): CursoDTO => {
-  let duracao: number;
+  console.log('🔄 [CURSO TRANSFORMER] Entrada:', { data, secretariaId });
 
+  // ✅ VALIDAÇÃO DO NOME
+  if (!data.nome || data.nome.trim() === '') {
+    throw new Error('Nome do curso é obrigatório');
+  }
+
+  if (data.nome.trim().length < 3) {
+    throw new Error('Nome do curso deve ter pelo menos 3 caracteres');
+  }
+
+  if (data.nome.trim().length > 100) {
+    throw new Error('Nome do curso deve ter no máximo 100 caracteres');
+  }
+
+  // ✅ VALIDAÇÃO DA DURAÇÃO
+  let duracao: number;
   if (typeof data.duracao === 'string') {
     duracao = parseInt(data.duracao, 10);
     if (isNaN(duracao) || duracao <= 0 || duracao > 60) {
@@ -64,19 +80,37 @@ export const transformCursoFormToDTO = (
     }
   } else {
     duracao = data.duracao;
+    if (duracao <= 0 || duracao > 60) {
+      throw new Error('Duração deve ser um número entre 1 e 60 meses');
+    }
   }
 
-  const idSecretaria = parseInt(secretariaId, 10);
-  if (isNaN(idSecretaria)) {
-    throw new Error('ID da secretaria deve ser um número válido');
+  // ✅ VALIDAÇÃO DO ID_SECRETARIA
+  if (!secretariaId || secretariaId.trim() === '') {
+    throw new Error('ID da secretaria é obrigatório');
   }
 
-  return {
+  // ✅ RETORNAR DTO CONFORME SEU ENDPOINT POST
+  const dto: CursoDTO = {
     nome: data.nome.trim(),
     duracao,
-    // ❌ REMOVIDO: turno
-    id_secretaria: idSecretaria
+    situacao: 'ATIVO',
+    id_secretaria: secretariaId.trim()
   };
+
+  console.log('✅ [CURSO TRANSFORMER] DTO criado:', dto);
+  return dto;
+};
+
+// ✅ TRANSFORMER PARA ATUALIZAÇÃO DE SITUAÇÃO
+export const transformCursoSituacaoUpdate = (
+  situacao: 'ATIVO' | 'INATIVO'
+): CursoUpdateSituacao => {
+  if (!situacao || !['ATIVO', 'INATIVO'].includes(situacao)) {
+    throw new Error('Situação deve ser ATIVO ou INATIVO');
+  }
+
+  return { situacao };
 };
 
 // ===== TURMA - SIMPLIFICADO PARA APENAS 3 CAMPOS =====
@@ -186,15 +220,19 @@ export const validateFormData = {
     return errors;
   },
 
-  curso: (data: CursoFormData): string[] => {
+  curso: (data: CursoFormData, secretariaId?: string): string[] => {
     const errors: string[] = [];
 
-    if (!data.nome?.trim()) {
+    // ✅ VALIDAÇÃO DOS CAMPOS OBRIGATÓRIOS
+    if (!data.nome || data.nome.trim() === '') {
       errors.push('Nome do curso é obrigatório');
     } else if (data.nome.trim().length < 3) {
       errors.push('Nome do curso deve ter pelo menos 3 caracteres');
+    } else if (data.nome.trim().length > 100) {
+      errors.push('Nome do curso deve ter no máximo 100 caracteres');
     }
 
+    // ✅ VALIDAÇÃO DA DURAÇÃO
     if (!data.duracao) {
       errors.push('Duração é obrigatória');
     } else {
@@ -204,7 +242,10 @@ export const validateFormData = {
       }
     }
 
-    // ❌ REMOVIDO: validação de turno
+    // ✅ VALIDAÇÃO DO ID_SECRETARIA (se fornecido)
+    if (secretariaId && secretariaId.trim() === '') {
+      errors.push('ID da secretaria é obrigatório');
+    }
 
     return errors;
   },
@@ -258,6 +299,18 @@ export const formatters = {
     return phone;
   },
 
+  duracao: (duracao: number): string => {
+    return `${duracao} ${duracao === 1 ? 'mês' : 'meses'}`;
+  },
+
+  situacaoCurso: (situacao: string): string => {
+    const situacoes = {
+      'ATIVO': 'Ativo',
+      'INATIVO': 'Inativo'
+    };
+    return situacoes[situacao as keyof typeof situacoes] || situacao;
+  },
+
   currency: (value: number): string => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -287,13 +340,21 @@ export const formatters = {
 // ===== VALIDADORES AUXILIARES =====
 export const validators = {
   secretariaId: (id: string): boolean => {
-    const numId = parseInt(id, 10);
-    return !isNaN(numId) && numId > 0;
+    return id !== undefined && id !== null && id.trim() !== '';
   },
 
   cursoId: (id: string): boolean => {
     const numId = parseInt(id, 10);
     return !isNaN(numId) && numId > 0;
+  },
+
+  duracao: (duracao: number | string): boolean => {
+    const num = typeof duracao === 'string' ? parseInt(duracao, 10) : duracao;
+    return !isNaN(num) && num >= 1 && num <= 60;
+  },
+
+  situacaoCurso: (situacao: string): boolean => {
+    return ['ATIVO', 'INATIVO'].includes(situacao);
   },
 
   positiveInteger: (value: string | number): boolean => {
