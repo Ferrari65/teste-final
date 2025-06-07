@@ -1,14 +1,19 @@
 'use client';
 
-import React from "react";
+import React, { useCallback } from "react";
 import { useTurmaForm } from "@/hooks/secretaria/turma";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
 import { SuccessMessage } from "@/components/ui/SuccessMessage";
-import { TurmaDataSection } from "./TurmaDataSection";
+import { TurmaDataSection } from "./TurmaDataSection"; // ✅ CORREÇÃO: Import relativo
 import BuscarTurma from "./BuscarTurma";
 import type { TurmaFormProps } from "@/hooks/secretaria/turma";
 
-export default function CadastroTurma({ onSuccess, onCancel }: TurmaFormProps) {
+interface CadastroTurmaProps extends TurmaFormProps {
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}
+
+export default function CadastroTurma({ onSuccess, onCancel }: CadastroTurmaProps) {
   const {
     form,
     onSubmit,
@@ -17,6 +22,16 @@ export default function CadastroTurma({ onSuccess, onCancel }: TurmaFormProps) {
     successMessage,
     clearMessages
   } = useTurmaForm({ onSuccess });
+
+  // Handlers memoizados para melhor performance
+  const handleClearMessages = useCallback((): void => {
+    clearMessages();
+  }, [clearMessages]);
+
+  const handleFormSubmit = useCallback((event: React.FormEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    form.handleSubmit(onSubmit)(event);
+  }, [form, onSubmit]);
 
   return (
     <div className="space-y-8">
@@ -59,21 +74,21 @@ export default function CadastroTurma({ onSuccess, onCancel }: TurmaFormProps) {
             {successMessage && (
               <SuccessMessage 
                 message={successMessage} 
-                onClose={clearMessages}
+                onClose={handleClearMessages}
               />
             )}
 
             {error && (
               <ErrorMessage 
                 message={error}
-                onRetry={() => clearMessages()}
+                onRetry={handleClearMessages}
               />
             )}
           </div>
 
           {/* Formulário */}
           <form 
-            onSubmit={form.handleSubmit(onSubmit)} 
+            onSubmit={handleFormSubmit}
             className="space-y-6"
             noValidate
           >
@@ -97,6 +112,7 @@ export default function CadastroTurma({ onSuccess, onCancel }: TurmaFormProps) {
                 type="submit"
                 disabled={loading}
                 className="px-4 py-2 text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center min-w-[120px] justify-center"
+                aria-describedby={loading ? "loading-message" : undefined}
               >
                 {loading ? (
                   <>
@@ -120,7 +136,7 @@ export default function CadastroTurma({ onSuccess, onCancel }: TurmaFormProps) {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       />
                     </svg>
-                    <span>Salvando...</span>
+                    <span id="loading-message">Salvando...</span>
                     <span className="sr-only">Processando cadastro da turma...</span>
                   </>
                 ) : (
@@ -147,7 +163,12 @@ export default function CadastroTurma({ onSuccess, onCancel }: TurmaFormProps) {
                 viewBox="0 0 24 24"
                 aria-hidden="true"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" 
+                />
               </svg>
             </div>
             <div>

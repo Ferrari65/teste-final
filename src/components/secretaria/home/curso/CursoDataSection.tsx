@@ -1,8 +1,10 @@
+// src/components/secretaria/home/curso/CursoDataSection.tsx - CORRIGIDO
+
 'use client';
 
 import React from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import type { CursoFormData } from '@/schemas'; // ✅ CORRIGIDO
+import type { CursoFormData } from '@/schemas';
 
 interface CursoDataSectionProps {
   form: UseFormReturn<CursoFormData>;
@@ -24,7 +26,7 @@ export const CursoDataSection: React.FC<CursoDataSectionProps> = ({ form }) => {
           </label>
           <input
             type="text"
-            {...register('nome')} // ✅ Zod já valida
+            {...register('nome')}
             className={`mt-1 block w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-1 transition-colors ${
               errors.nome 
                 ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
@@ -46,7 +48,7 @@ export const CursoDataSection: React.FC<CursoDataSectionProps> = ({ form }) => {
           </label>
           <input
             type="number"
-            {...register('duracao')} // ✅ Zod já valida
+            {...register('duracao')}
             className={`mt-1 block w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-1 transition-colors ${
               errors.duracao 
                 ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
@@ -60,6 +62,30 @@ export const CursoDataSection: React.FC<CursoDataSectionProps> = ({ form }) => {
             <span className="text-sm text-red-600">{errors.duracao.message}</span>
           )}
           <span className="text-xs text-gray-500">Número inteiro entre 1 e 60</span>
+        </div>
+
+        {/* ✅ NOVO: TURNO */}
+        <div className="space-y-1 md:col-span-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Turno
+            <span className="text-red-500 ml-1">*</span>
+          </label>
+          <select
+            {...register('turno')}
+            className={`mt-1 block w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-1 transition-colors ${
+              errors.turno 
+                ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
+                : 'border-gray-300 focus:ring-yellow-500 focus:border-yellow-500'
+            }`}
+          >
+            <option value="">Selecione o turno</option>
+            <option value="DIURNO">🌅 Diurno (Manhã/Tarde)</option>
+            <option value="NOTURNO">🌙 Noturno</option>
+          </select>
+          {errors.turno && (
+            <span className="text-sm text-red-600">{errors.turno.message}</span>
+          )}
+          <span className="text-xs text-gray-500">Turno de funcionamento do curso</span>
         </div>
       </div>
     </div>

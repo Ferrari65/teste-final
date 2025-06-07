@@ -133,26 +133,30 @@ export const cursoFormSchema = z.object({
       }
       return num;
     }),
+  // ✅ ADICIONADO CAMPO TURNO OBRIGATÓRIO
+  turno: z.enum(['DIURNO', 'NOTURNO'], {
+    errorMap: () => ({ message: 'Selecione o turno' }),
+  }),
 });
 
 export const cursoDTOSchema = z.object({
   nome: z.string(),
   duracao: z.number().positive('Duração deve ser positiva'),
-  id_secretaria: z.string(),
-  situacao: z.string().default('ATIVO'),
-  data_alteracao: z.string(),
+  turno: z.enum(['DIURNO', 'NOTURNO']), // ✅ TURNO NO DTO
+  id_secretaria: z.number().positive(),
 });
 
+// ✅ RESPONSE CORRIGIDO PARA INCLUIR TURNO
 export const cursoResponseSchema = z.object({
-  id_curso: z.string(),
+  id_curso: z.number(),
   nome: z.string(),
   duracao: z.number(),
-  id_secretaria: z.string(),
-  situacao: z.string(),
-  data_alteracao: z.string(),
+  turno: z.enum(['DIURNO', 'NOTURNO']), // ✅ TURNO NA RESPONSE
+  id_secretaria: z.number(),
+  situacao: z.enum(['ATIVO', 'INATIVO']).optional(),
 });
 
-// ===== SCHEMAS DE TURMA =====
+// ===== SCHEMAS DE TURMA - CORRIGIDO PARA MATCH COM BACKEND =====
 export const turmaFormSchema = z.object({
   nome: nameValidator.refine(
     (name) => name.length >= 3 && name.length <= 100,
@@ -168,31 +172,27 @@ export const turmaFormSchema = z.object({
   }),
 });
 
+// ✅ DTO QUE CORRESPONDE AO BACKEND
 export const turmaDTOSchema = z.object({
   nome: z.string(),
   ano: z.string(),
   turno: z.enum(['DIURNO', 'NOTURNO']),
 });
 
+// ✅ RESPONSE QUE CORRESPONDE AO TurmaResponseDTO
 export const turmaResponseSchema = z.object({
   idTurma: z.string(),
   nome: z.string(),
   ano: z.string(),
   idCurso: z.string(),
   idSecretaria: z.string(),
-  alunos: z
-    .array(
-      z.object({
-        idAluno: z.string(),
-        nome: z.string(),
-        email: z.string(),
-        matricula: z.string(),
-        telefone: z.string(),
-        situacao: z.string(),
-        data_nasc: z.string(),
-      })
-    )
-    .optional(),
+  alunos: z.array(z.object({
+    idAluno: z.string(),
+    nome: z.string(),
+    matricula: z.string(),
+    email: z.string(),
+    situacao: z.string(),
+  })),
 });
 
 // ===== TIPOS DERIVADOS =====

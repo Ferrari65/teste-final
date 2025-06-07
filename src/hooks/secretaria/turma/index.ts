@@ -1,5 +1,6 @@
-// src/hooks/secretaria/turma/index.ts
-import { useState, useContext, useCallback, useEffect } from 'react';
+// src/hooks/secretaria/turma/index.ts - HOOKS CORRIGIDOS SEM ANY
+
+import { useState, useContext, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -10,31 +11,15 @@ import {
   type TurmaFormData,
   type TurmaResponse,
 } from '@/schemas';
+import { AxiosError } from 'axios';
 
 // ===== INTERFACES =====
-interface Turma {
-  idTurma: string;
-  nome: string;
-  ano: string;
-  idCurso: string;
-  idSecretaria: string;
-  alunos?: Array<{
-    idAluno: string;
-    nome: string;
-    email: string;
-    matricula: string;
-    telefone: string;
-    situacao: string;
-    data_nasc: string;
-  }>;
-}
-
-interface TurmaFormProps {
+export interface TurmaFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
-interface UseTurmaFormReturn {
+export interface UseTurmaFormReturn {
   form: ReturnType<typeof useForm<TurmaFormData>>;
   onSubmit: (data: TurmaFormData) => Promise<void>;
   loading: boolean;
@@ -43,11 +28,14 @@ interface UseTurmaFormReturn {
   clearMessages: () => void;
 }
 
-interface UseTurmaListReturn {
-  turmas: Turma[];
+export interface UseTurmaSearchReturn {
+  searchId: string;
+  setSearchId: (id: string) => void;
+  turma: TurmaResponse | null;
   loading: boolean;
   error: string | null;
-  refetch: () => void;
+  handleSearch: () => void;
+  handleClear: () => void;
   clearError: () => void;
 }
 
@@ -56,7 +44,76 @@ interface UseTurmaFormOptions {
   initialData?: Partial<TurmaFormData>;
 }
 
-// ===== FORMULÁRIO DE TURMA =====
+// ===== HELPER FUNCTIONS =====
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return 'Erro desconhecido';
+}
+
+function isAxiosError(error: unknown): error is AxiosError {
+  return error !== null && 
+         typeof error === 'object' && 
+         'response' in error && 
+         'config' in error;
+}
+
+function handleSubmitError(error: unknown): string {
+  if (!isAxiosError(error)) {
+    return getErrorMessage(error);
+  }
+
+  const axiosError = error as AxiosError;
+  const status = axiosError.response?.status;
+  const responseData = axiosError.response?.data as { message?: string; error?: string } | undefined;
+
+  console.error('❌ Erro completo:', axiosError);
+  console.error('❌ Response data:', responseData);
+  console.error('❌ Status:', status);
+  console.error('❌ URL tentada:', axiosError.config?.url);
+
+  // Tratamento específico por status
+  switch (status) {
+    case 400:
+      const errorMsg = responseData?.message || responseData?.error;
+      return errorMsg 
+        ? `Erro de validação: ${errorMsg}`
+        : 'Dados inválidos. Verifique se todos os campos estão corretos.';
+    
+    case 404:
+      return 'Endpoint não encontrado. Verifique se o backend está rodando.';
+    
+    case 500:
+      return 'Erro interno do servidor. Tente novamente.';
+    
+    default:
+      const { message } = handleApiError(axiosError, 'CreateTurma');
+      return message;
+  }
+}
+
+function handleSearchError(error: unknown, searchId: string): string {
+  if (!isAxiosError(error)) {
+    return getErrorMessage(error);
+  }
+
+  const axiosError = error as AxiosError;
+  console.error('❌ Erro ao buscar turma:', axiosError);
+  
+  const { message } = handleApiError(axiosError, 'SearchTurma');
+  
+  if (axiosError.response?.status === 404) {
+    return `Turma com ID "${searchId}" não encontrada`;
+  }
+  
+  return message;
+}
+
+// ===== HOOK: FORMULÁRIO DE TURMA =====
 export const useTurmaForm = ({
   onSuccess,
   initialData,
@@ -71,8 +128,9 @@ export const useTurmaForm = ({
     mode: 'onBlur',
     defaultValues: {
       nome: initialData?.nome ?? '',
-      turno: initialData?.turno ?? 'DIURNO',
+      id_curso: initialData?.id_curso ?? '',
       ano: initialData?.ano ?? new Date().getFullYear().toString(),
+      turno: initialData?.turno ?? 'DIURNO',
     },
   });
 
@@ -83,10 +141,15 @@ export const useTurmaForm = ({
 
   const onSubmit = useCallback(
     async (data: TurmaFormData): Promise<void> => {
-      console.log('📝 Dados do formulário:', data); // Para debug
+      console.log('📝 Dados do formulário:', data);
       
       if (!user?.id) {
         setError('ID da secretaria não encontrado. Faça login novamente.');
+        return;
+      }
+
+      if (!data.id_curso) {
+        setError('Curso é obrigatório. Selecione um curso.');
         return;
       }
 
@@ -94,26 +157,35 @@ export const useTurmaForm = ({
       setError(null);
 
       try {
+        // Usar transformer corrigido com turno
         const turmaDTO = transformTurmaFormToDTO(data);
-        console.log('📤 Enviando para API:', turmaDTO); // Para debug
+        
+        console.log('📤 Dados enviados para API:', turmaDTO);
+        console.log('🆔 ID Secretaria (path):', user.id);
+        console.log('🆔 ID Curso (path):', data.id_curso);
+        
         const api = getAPIClient();
         
-        // POST /turma/criar/{id_secretaria}/{id_curso} - usando curso fixo para teste
-        const cursoFixo = 'curso-teste-123'; // Curso fictício para teste
-        const response = await api.post(`/turma/criar/${user.id}/${cursoFixo}`, turmaDTO);
-        console.log('✅ Resposta da API:', response.data); // Para debug
+        // Endpoint correto baseado na documentação
+        const response = await api.post(
+          `/turma/criar/${user.id}/${data.id_curso}`, 
+          turmaDTO
+        );
+        
+        console.log('✅ Resposta da API:', response.data);
 
         setSuccessMessage('Turma cadastrada com sucesso!');
-        form.reset();
+        form.reset({
+          nome: '',
+          id_curso: '',
+          ano: new Date().getFullYear().toString(),
+          turno: 'DIURNO',
+        });
         onSuccess?.();
-      } catch (err: unknown) {
-        console.error('❌ Erro na API:', err); // Para debug
-        const { message } = handleApiError(err, 'CreateTurma');
-        if (message.includes('já cadastrada')) {
-          setError('Esta turma já está cadastrada no sistema.');
-        } else {
-          setError(message);
-        }
+        
+      } catch (error: unknown) {
+        const errorMessage = handleSubmitError(error);
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -131,17 +203,24 @@ export const useTurmaForm = ({
   };
 };
 
-// ===== BUSCAR TURMA POR ID =====
-export const useTurmaBuscar = () => {
-  const [turma, setTurma] = useState<Turma | null>(null);
+// ===== HOOK: BUSCAR TURMA =====
+export const useTurmaSearch = (): UseTurmaSearchReturn => {
+  const [searchId, setSearchId] = useState('');
+  const [turma, setTurma] = useState<TurmaResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useContext(AuthContext);
 
   const clearError = useCallback(() => setError(null), []);
 
-  const buscarTurma = useCallback(async (idTurma: string): Promise<void> => {
-    if (!idTurma || idTurma.trim() === '') {
-      setError('ID da turma é obrigatório');
+  const handleSearch = useCallback(async (): Promise<void> => {
+    if (!searchId.trim()) {
+      setError('Digite um ID para buscar');
+      return;
+    }
+
+    if (!user?.id) {
+      setError('ID da secretaria não encontrado. Faça login novamente.');
       return;
     }
 
@@ -151,48 +230,33 @@ export const useTurmaBuscar = () => {
 
     try {
       const api = getAPIClient();
-      // GET /turma/buscarTurma/{id_turma}
-      const response = await api.get(`/turma/buscarTurma/${idTurma}`);
-      setTurma(response.data || null);
-    } catch (err: unknown) {
-      const { message } = handleApiError(err, 'BuscarTurma');
-      setError(message);
+      
+      // Endpoint para buscar turma específica
+      const response = await api.get(`/turma/buscarTurma/${searchId}`);
+      
+      console.log('✅ Turma encontrada:', response.data);
+      
+      // Validar se a resposta tem a estrutura esperada
+      if (response.data && typeof response.data === 'object') {
+        setTurma(response.data as TurmaResponse);
+      } else {
+        setError('Resposta inválida do servidor');
+      }
+      
+    } catch (error: unknown) {
+      const errorMessage = handleSearchError(error, searchId);
+      setError(errorMessage);
       setTurma(null);
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  const limparTurma = useCallback(() => {
-    setTurma(null);
-    setError(null);
-  }, []);
-
-  return {
-    turma,
-    loading,
-    error,
-    buscarTurma,
-    limparTurma,
-    clearError,
-  };
-};
-
-// ===== COMPONENTE DE BUSCA (para usar na interface) =====
-export const useTurmaSearch = () => {
-  const [searchId, setSearchId] = useState('');
-  const { turma, loading, error, buscarTurma, limparTurma, clearError } = useTurmaBuscar();
-
-  const handleSearch = useCallback(async () => {
-    if (searchId.trim()) {
-      await buscarTurma(searchId.trim());
-    }
-  }, [searchId, buscarTurma]);
+  }, [searchId, user?.id]);
 
   const handleClear = useCallback(() => {
     setSearchId('');
-    limparTurma();
-  }, [limparTurma]);
+    setTurma(null);
+    setError(null);
+  }, []);
 
   return {
     searchId,
@@ -204,12 +268,4 @@ export const useTurmaSearch = () => {
     handleClear,
     clearError,
   };
-};
-
-// ===== TIPOS PARA USO EXTERNO =====
-export type { 
-  Turma, 
-  TurmaFormProps, 
-  UseTurmaFormReturn, 
-  UseTurmaListReturn 
 };

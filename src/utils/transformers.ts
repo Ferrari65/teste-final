@@ -1,23 +1,25 @@
-import { 
-  ProfessorFormData, 
+// src/utils/transformers.ts - VERSÃO CORRIGIDA SEM ERROS
+
+import {
+  ProfessorFormData,
   ProfessorDTO,
-  CursoFormData, 
+  CursoFormData,
   CursoDTO,
-  TurmaFormData, 
+  TurmaFormData,
   TurmaDTO,
   cleanCPF,
   cleanPhone
 } from '@/schemas';
 
-// ===== PROFESSOR =====
+// ===== PROFESSOR (CORRIGIDO) =====
 export const transformProfessorFormToDTO = (
-  data: ProfessorFormData, 
+  data: ProfessorFormData,
   secretariaId: string
 ): ProfessorDTO => {
   const cpfLimpo = cleanCPF(data.cpf);
   const telefoneLimpo = cleanPhone(data.telefone);
   const numeroInt = parseInt(data.numero, 10);
-  
+
   if (isNaN(numeroInt) || numeroInt <= 0) {
     throw new Error('Número deve ser um valor válido maior que zero');
   }
@@ -48,13 +50,13 @@ export const transformProfessorFormToDTO = (
   };
 };
 
-// ===== CURSO =====
+// ===== CURSO (CORRIGIDO PARA INCLUIR TURNO) =====
 export const transformCursoFormToDTO = (
-  data: CursoFormData, 
+  data: CursoFormData,
   secretariaId: string
 ): CursoDTO => {
   let duracao: number;
-  
+
   if (typeof data.duracao === 'string') {
     duracao = parseInt(data.duracao, 10);
     if (isNaN(duracao) || duracao <= 0 || duracao > 60) {
@@ -64,36 +66,109 @@ export const transformCursoFormToDTO = (
     duracao = data.duracao;
   }
 
+  const idSecretaria = parseInt(secretariaId, 10);
+  if (isNaN(idSecretaria)) {
+    throw new Error('ID da secretaria deve ser um número válido');
+  }
+
+  const turnosValidos = ['DIURNO', 'NOTURNO'];
+  if (!turnosValidos.includes(data.turno)) {
+    throw new Error('Turno deve ser DIURNO ou NOTURNO');
+  }
+
   return {
     nome: data.nome.trim(),
     duracao,
-    id_secretaria: secretariaId,
-    situacao: 'ATIVO',
-    data_alteracao: new Date().toISOString().split('T')[0] // YYYY-MM-DD
+    turno: data.turno, // ✅ CAMPO TURNO ADICIONADO
+    id_secretaria: idSecretaria
   };
 };
 
-// ===== TURMA =====
+// ===== TURMA (CORRIGIDO PARA INCLUIR TURNO) =====
 export const transformTurmaFormToDTO = (
   data: TurmaFormData
 ): TurmaDTO => {
-  const turnosValidos = ['DIURNO', 'NOTURNO'];
-  if (!turnosValidos.includes(data.turno)) {
-    throw new Error('Turno inválido');
-  }
-
-  if (!/^\d{4}$/.test(data.ano)) {
+  // ✅ VALIDAÇÃO DO ANO
+  if (!data.ano || !/^\d{4}$/.test(data.ano)) {
     throw new Error('Ano deve ter 4 dígitos (ex: 2024)');
   }
 
+  // ✅ VALIDAÇÃO DO NOME
+  if (!data.nome || data.nome.trim() === '') {
+    throw new Error('Nome da turma é obrigatório');
+  }
+
+  if (data.nome.trim().length < 3) {
+    throw new Error('Nome da turma deve ter pelo menos 3 caracteres');
+  }
+
+  if (data.nome.trim().length > 100) {
+    throw new Error('Nome da turma deve ter no máximo 100 caracteres');
+  }
+
+  // ✅ VALIDAÇÃO DO CURSO
+  if (!data.id_curso || data.id_curso.trim() === '') {
+    throw new Error('Curso é obrigatório');
+  }
+
+  const idCurso = parseInt(data.id_curso, 10);
+  if (isNaN(idCurso) || idCurso <= 0) {
+    throw new Error('ID do curso deve ser um número válido');
+  }
+
+  // ✅ VALIDAÇÃO DO TURNO
+  if (!data.turno) {
+    throw new Error('Turno é obrigatório');
+  }
+
+  const turnosValidos = ['DIURNO', 'NOTURNO'];
+  if (!turnosValidos.includes(data.turno)) {
+    throw new Error('Turno deve ser DIURNO ou NOTURNO');
+  }
+
+  // ✅ RETORNAR DTO CORRETO (SÓ OS CAMPOS QUE VÃO NO BODY)
   return {
     nome: data.nome.trim(),
     ano: data.ano,
-    turno: data.turno,
+    turno: data.turno // ✅ INCLUIR TURNO CONFORME SEU BACKEND
   };
 };
 
-// =====  FORMULÁRIO =====
+// ===== VALIDAÇÃO AUXILIAR PARA TURMA =====
+export const validateTurmaData = (
+  data: TurmaFormData,
+  secretariaId: string
+): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+
+  // Validar dados do formulário
+  try {
+    transformTurmaFormToDTO(data);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      errors.push(error.message);
+    } else {
+      errors.push('Erro desconhecido na validação');
+    }
+  }
+
+  // Validar secretaria ID
+  if (!secretariaId || secretariaId.trim() === '') {
+    errors.push('ID da secretaria não encontrado');
+  } else {
+    const idSecretaria = parseInt(secretariaId, 10);
+    if (isNaN(idSecretaria) || idSecretaria <= 0) {
+      errors.push('ID da secretaria deve ser um número válido');
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
+// ===== VALIDAÇÃO DE FORMULÁRIOS =====
 export const validateFormData = {
   professor: (data: ProfessorFormData): string[] => {
     const errors: string[] = [];
@@ -144,12 +219,20 @@ export const validateFormData = {
       }
     }
 
+    // ✅ VALIDAÇÃO DE TURNO ADICIONADA
+    if (!data.turno) {
+      errors.push('Turno é obrigatório');
+    } else if (!['DIURNO', 'NOTURNO'].includes(data.turno)) {
+      errors.push('Turno deve ser DIURNO ou NOTURNO');
+    }
+
     return errors;
   },
 
   turma: (data: TurmaFormData): string[] => {
     const errors: string[] = [];
 
+    // ✅ VALIDAÇÃO COMPLETA DOS CAMPOS OBRIGATÓRIOS
     const requiredFields = [
       { value: data.nome?.trim(), label: 'Nome da turma' },
       { value: data.id_curso, label: 'Curso' },
@@ -163,15 +246,21 @@ export const validateFormData = {
       }
     });
 
+    // ✅ VALIDAÇÃO ESPECÍFICA DO ANO
     if (data.ano && !/^\d{4}$/.test(data.ano)) {
       errors.push('Ano deve ter 4 dígitos (ex: 2024)');
+    }
+
+    // ✅ VALIDAÇÃO ESPECÍFICA DO TURNO
+    if (data.turno && !['DIURNO', 'NOTURNO'].includes(data.turno)) {
+      errors.push('Turno deve ser DIURNO ou NOTURNO');
     }
 
     return errors;
   }
 };
 
-// ===== FORMATADORES =====
+// ===== FORMATADORES (EXPANDIDOS) =====
 export const formatters = {
   cpf: (cpf: string): string => {
     const clean = cleanCPF(cpf);
@@ -215,10 +304,16 @@ export const formatters = {
   }
 };
 
-// ===== VALIDADORES =====
+// ===== VALIDADORES AUXILIARES =====
 export const validators = {
   secretariaId: (id: string): boolean => {
-    return typeof id === 'string' && id.trim().length > 0;
+    const numId = parseInt(id, 10);
+    return !isNaN(numId) && numId > 0;
+  },
+
+  cursoId: (id: string): boolean => {
+    const numId = parseInt(id, 10);
+    return !isNaN(numId) && numId > 0;
   },
 
   positiveInteger: (value: string | number): boolean => {
