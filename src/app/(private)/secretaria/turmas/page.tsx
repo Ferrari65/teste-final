@@ -1,3 +1,6 @@
+// src/app/(private)/secretaria/turmas/page.tsx
+// PÁGINA PRINCIPAL DE TURMAS - CORRIGIDA
+
 'use client';
 
 import React, { useContext, useCallback } from 'react';

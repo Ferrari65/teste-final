@@ -1,5 +1,4 @@
 // src/hooks/secretaria/turma/useTurmaForm.ts
-// HOOK APENAS PARA CADASTRO DE TURMA - LIMPO E SIMPLES
 
 import { useState, useContext, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
@@ -7,12 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AuthContext } from '@/contexts/AuthContext';
 import { getAPIClient, handleApiError } from '@/services/api';
 import { transformTurmaFormToDTO } from '@/utils/transformers';
-import {
-  turmaFormSchema,
-  type TurmaFormData,
-} from '@/schemas';
+import { turmaFormSchema, type TurmaFormData } from '@/schemas';
 
-// ===== INTERFACES =====
 export interface TurmaFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
@@ -32,25 +27,6 @@ interface UseTurmaFormOptions {
   initialData?: Partial<TurmaFormData>;
 }
 
-// ===== HELPER FUNCTIONS =====
-function handleSubmitError(error: unknown): string {
-  const { message, status } = handleApiError(error, 'CreateTurma');
-  
-  switch (status) {
-    case 400:
-      return 'Dados inválidos. Verifique se todos os campos estão corretos.';
-    case 404:
-      return 'Curso não encontrado. Verifique se o curso selecionado existe.';
-    case 409:
-      return 'Já existe uma turma com esse nome neste curso.';
-    case 500:
-      return 'Erro interno do servidor. Tente novamente.';
-    default:
-      return message;
-  }
-}
-
-// ===== HOOK PRINCIPAL =====
 export const useTurmaForm = ({
   onSuccess,
   initialData,
@@ -60,7 +36,6 @@ export const useTurmaForm = ({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const { user } = useContext(AuthContext);
 
-  // Form setup
   const form = useForm<TurmaFormData>({
     resolver: zodResolver(turmaFormSchema),
     mode: 'onBlur',
@@ -72,22 +47,15 @@ export const useTurmaForm = ({
     },
   });
 
-  // Limpar mensagens
   const clearMessages = useCallback(() => {
     setSuccessMessage(null);
     setError(null);
   }, []);
 
-  // Submit principal
   const onSubmit = useCallback(
     async (data: TurmaFormData): Promise<void> => {
       if (!user?.id) {
         setError('ID da secretaria não encontrado. Faça login novamente.');
-        return;
-      }
-
-      if (!data.id_curso) {
-        setError('Curso é obrigatório. Selecione um curso.');
         return;
       }
 
@@ -97,12 +65,12 @@ export const useTurmaForm = ({
       try {
         const turmaDTO = transformTurmaFormToDTO(data);
         const api = getAPIClient();
+        const endpoint = `/turma/criar/${user.id}/${data.id_curso}`;
         
-        await api.post(`/turma/criar/${user.id}/${data.id_curso}`, turmaDTO);
+        await api.post(endpoint, turmaDTO);
 
         setSuccessMessage('Turma cadastrada com sucesso!');
         
-        // Reset do formulário
         form.reset({
           nome: '',
           id_curso: '',
@@ -112,8 +80,18 @@ export const useTurmaForm = ({
         
         onSuccess?.();
         
-      } catch (error: unknown) {
-        const errorMessage = handleSubmitError(error);
+      } catch (err: unknown) {
+        const { message, status } = handleApiError(err, 'CreateTurma');
+        
+        let errorMessage = message;
+        if (status === 400) {
+          errorMessage = 'Dados inválidos. Verifique as informações.';
+        } else if (status === 404) {
+          errorMessage = 'Curso não encontrado.';
+        } else if (status === 409) {
+          errorMessage = 'Já existe uma turma com esse nome.';
+        }
+        
         setError(errorMessage);
       } finally {
         setLoading(false);

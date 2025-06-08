@@ -1,4 +1,4 @@
-// src/utils/transformers.ts - TRANSFORMERS CORRIGIDOS SEM LOGS
+// src/utils/transformers.ts - COM CAMPO maxAlunos
 
 import {
   ProfessorFormData,
@@ -107,10 +107,12 @@ export const transformCursoSituacaoUpdate = (
   return { situacao };
 };
 
-// ===== ✅ TURMA - TRANSFORMADOR LIMPO PARA SEU BACKEND =====
+// ===== ✅ TURMA - COM maxAlunos =====
 export const transformTurmaFormToDTO = (
   data: TurmaFormData
 ): TurmaDTO => {
+  console.log('🔄 [TRANSFORMER] Dados recebidos:', data);
+
   // Validação do nome
   if (!data.nome || data.nome.trim() === '') {
     throw new Error('Nome da turma é obrigatório');
@@ -139,15 +141,32 @@ export const transformTurmaFormToDTO = (
     throw new Error('Turno deve ser DIURNO ou NOTURNO');
   }
 
-  // ✅ RETORNAR APENAS OS 3 CAMPOS QUE SEU BACKEND ESPERA
-  return {
+  // ✅ VALIDAÇÃO DO maxAlunos
+  let maxAlunos: number;
+  if (typeof data.maxAlunos === 'string') {
+    maxAlunos = parseInt(data.maxAlunos, 10);
+    if (isNaN(maxAlunos) || maxAlunos < 1 || maxAlunos > 50) {
+      throw new Error('Máximo de alunos deve ser entre 1 e 50');
+    }
+  } else {
+    maxAlunos = data.maxAlunos;
+    if (maxAlunos < 1 || maxAlunos > 50) {
+      throw new Error('Máximo de alunos deve ser entre 1 e 50');
+    }
+  }
+
+  const dto: TurmaDTO = {
     nome: data.nome.trim(),
     ano: data.ano,
-    turno: data.turno as 'DIURNO' | 'NOTURNO'
+    turno: data.turno as 'DIURNO' | 'NOTURNO',
+    maxAlunos: maxAlunos // ✅ NOVO CAMPO
   };
+
+  console.log('✅ [TRANSFORMER] DTO criado:', dto);
+  return dto;
 };
 
-// ===== VALIDAÇÃO DE FORMULÁRIO DE TURMA =====
+// ===== VALIDAÇÃO DE FORMULÁRIO DE TURMA ATUALIZADA =====
 export const validateTurmaForm = (data: TurmaFormData): string[] => {
   const errors: string[] = [];
 
@@ -155,7 +174,8 @@ export const validateTurmaForm = (data: TurmaFormData): string[] => {
     { value: data.nome?.trim(), label: 'Nome da turma' },
     { value: data.id_curso, label: 'Curso' },
     { value: data.turno, label: 'Turno' },
-    { value: data.ano, label: 'Ano' }
+    { value: data.ano, label: 'Ano' },
+    { value: data.maxAlunos, label: 'Máximo de alunos' } // ✅ NOVO CAMPO
   ];
 
   requiredFields.forEach(({ value, label }) => {
@@ -170,6 +190,14 @@ export const validateTurmaForm = (data: TurmaFormData): string[] => {
 
   if (data.turno && !['DIURNO', 'NOTURNO'].includes(data.turno)) {
     errors.push('Turno deve ser DIURNO ou NOTURNO');
+  }
+
+  // ✅ VALIDAÇÃO DO maxAlunos
+  if (data.maxAlunos) {
+    const maxAlunos = typeof data.maxAlunos === 'string' ? parseInt(data.maxAlunos, 10) : data.maxAlunos;
+    if (isNaN(maxAlunos) || maxAlunos < 1 || maxAlunos > 50) {
+      errors.push('Máximo de alunos deve ser entre 1 e 50');
+    }
   }
 
   return errors;
@@ -228,6 +256,20 @@ export const formatters = {
 
   ano: (ano: string): string => {
     return ano.padStart(4, '0');
+  },
+
+  // ✅ NOVO FORMATADOR PARA maxAlunos
+  maxAlunos: (maxAlunos: number): string => {
+    return `${maxAlunos} aluno${maxAlunos !== 1 ? 's' : ''}`;
+  },
+
+  capacidadeStatus: (alunosMatriculados: number, maxAlunos: number): string => {
+    const percentual = (alunosMatriculados / maxAlunos) * 100;
+    
+    if (percentual >= 100) return '🔴 Lotada';
+    if (percentual >= 90) return '🟡 Quase cheia';
+    if (percentual >= 70) return '🟠 Preenchendo';
+    return '🟢 Disponível';
   }
 };
 
@@ -271,5 +313,11 @@ export const validators = {
 
   ano: (ano: string): boolean => {
     return /^\d{4}$/.test(ano) && parseInt(ano) >= 1900 && parseInt(ano) <= 2100;
+  },
+
+  // ✅ NOVO VALIDADOR PARA maxAlunos
+  maxAlunos: (maxAlunos: number | string): boolean => {
+    const num = typeof maxAlunos === 'string' ? parseInt(maxAlunos, 10) : maxAlunos;
+    return !isNaN(num) && num >= 1 && num <= 50;
   }
 };

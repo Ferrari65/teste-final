@@ -1,8 +1,10 @@
 // src/hooks/secretaria/turma/index.ts
-// APENAS O HOOK DE FORMULÁRIO - LIMPO E SIMPLES
+// APENAS HOOK DE FORMULÁRIO - SIMPLIFICADO
 
-// ===== HOOK DE FORMULÁRIO DE TURMA =====
+// ===== EXPORTS CENTRALIZADOS =====
 export { useTurmaForm } from './useTurmaForm';
+
+// ===== TYPES =====
 export type { 
   TurmaFormProps, 
   UseTurmaFormReturn 
