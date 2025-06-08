@@ -107,7 +107,7 @@ export const transformCursoSituacaoUpdate = (
   return { situacao };
 };
 
-// ===== ✅ TURMA - CORRIGIDO PARA SEU BACKEND =====
+// ===== ✅ TURMA - TRANSFORMADOR LIMPO PARA SEU BACKEND =====
 export const transformTurmaFormToDTO = (
   data: TurmaFormData
 ): TurmaDTO => {
@@ -147,92 +147,32 @@ export const transformTurmaFormToDTO = (
   };
 };
 
-// ===== VALIDAÇÃO DE FORMULÁRIOS =====
-export const validateFormData = {
-  professor: (data: ProfessorFormData): string[] => {
-    const errors: string[] = [];
+// ===== VALIDAÇÃO DE FORMULÁRIO DE TURMA =====
+export const validateTurmaForm = (data: TurmaFormData): string[] => {
+  const errors: string[] = [];
 
-    const requiredFields = [
-      { value: data.nome?.trim(), label: 'Nome' },
-      { value: data.email?.trim(), label: 'Email' },
-      { value: data.senha, label: 'Senha' },
-      { value: data.cpf, label: 'CPF' },
-      { value: data.telefone, label: 'Telefone' },
-      { value: data.data_nasc, label: 'Data de nascimento' },
-      { value: data.sexo, label: 'Sexo' },
-      { value: data.logradouro?.trim(), label: 'Logradouro' },
-      { value: data.bairro?.trim(), label: 'Bairro' },
-      { value: data.numero, label: 'Número' },
-      { value: data.cidade?.trim(), label: 'Cidade' },
-      { value: data.uf, label: 'UF' }
-    ];
+  const requiredFields = [
+    { value: data.nome?.trim(), label: 'Nome da turma' },
+    { value: data.id_curso, label: 'Curso' },
+    { value: data.turno, label: 'Turno' },
+    { value: data.ano, label: 'Ano' }
+  ];
 
-    requiredFields.forEach(({ value, label }) => {
-      if (!value || (typeof value === 'string' && value.trim() === '')) {
-        errors.push(`${label} é obrigatório`);
-      }
-    });
-
-    if (data.numero && isNaN(parseInt(data.numero, 10))) {
-      errors.push('Número deve ser um valor numérico válido');
+  requiredFields.forEach(({ value, label }) => {
+    if (!value || (typeof value === 'string' && value.trim() === '')) {
+      errors.push(`${label} é obrigatório`);
     }
+  });
 
-    return errors;
-  },
-
-  curso: (data: CursoFormData, secretariaId?: string): string[] => {
-    const errors: string[] = [];
-
-    if (!data.nome || data.nome.trim() === '') {
-      errors.push('Nome do curso é obrigatório');
-    } else if (data.nome.trim().length < 3) {
-      errors.push('Nome do curso deve ter pelo menos 3 caracteres');
-    } else if (data.nome.trim().length > 100) {
-      errors.push('Nome do curso deve ter no máximo 100 caracteres');
-    }
-
-    if (!data.duracao) {
-      errors.push('Duração é obrigatória');
-    } else {
-      const duracao = typeof data.duracao === 'string' ? parseInt(data.duracao, 10) : data.duracao;
-      if (isNaN(duracao) || duracao <= 0 || duracao > 60) {
-        errors.push('Duração deve ser um número entre 1 e 60 meses');
-      }
-    }
-
-    if (secretariaId && secretariaId.trim() === '') {
-      errors.push('ID da secretaria é obrigatório');
-    }
-
-    return errors;
-  },
-
-  turma: (data: TurmaFormData): string[] => {
-    const errors: string[] = [];
-
-    const requiredFields = [
-      { value: data.nome?.trim(), label: 'Nome da turma' },
-      { value: data.id_curso, label: 'Curso' },
-      { value: data.turno, label: 'Turno' },
-      { value: data.ano, label: 'Ano' }
-    ];
-
-    requiredFields.forEach(({ value, label }) => {
-      if (!value || (typeof value === 'string' && value.trim() === '')) {
-        errors.push(`${label} é obrigatório`);
-      }
-    });
-
-    if (data.ano && !/^\d{4}$/.test(data.ano)) {
-      errors.push('Ano deve ter 4 dígitos (ex: 2024)');
-    }
-
-    if (data.turno && !['DIURNO', 'NOTURNO'].includes(data.turno)) {
-      errors.push('Turno deve ser DIURNO ou NOTURNO');
-    }
-
-    return errors;
+  if (data.ano && !/^\d{4}$/.test(data.ano)) {
+    errors.push('Ano deve ter 4 dígitos (ex: 2024)');
   }
+
+  if (data.turno && !['DIURNO', 'NOTURNO'].includes(data.turno)) {
+    errors.push('Turno deve ser DIURNO ou NOTURNO');
+  }
+
+  return errors;
 };
 
 // ===== FORMATADORES =====

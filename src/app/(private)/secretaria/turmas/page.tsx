@@ -25,6 +25,7 @@ export default function SecretariaTurmasPage(): React.JSX.Element {
 
   const handleTurmaSuccess = useCallback(() => {
     console.log('Turma cadastrada com sucesso!');
+    // Aqui você pode adicionar lógica após o sucesso
   }, []);
 
   // Loading state

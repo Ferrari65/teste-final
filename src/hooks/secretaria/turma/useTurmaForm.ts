@@ -1,5 +1,5 @@
 // src/hooks/secretaria/turma/useTurmaForm.ts
-// HOOK APENAS PARA CADASTRO - LIMPO E SIMPLES
+// HOOK APENAS PARA CADASTRO DE TURMA - LIMPO E SIMPLES
 
 import { useState, useContext, useCallback } from 'react';
 import { useForm } from 'react-hook-form';

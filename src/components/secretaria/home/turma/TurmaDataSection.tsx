@@ -1,5 +1,5 @@
 // src/components/secretaria/home/turma/TurmaDataSection.tsx
-// SEÇÃO DE DADOS DA TURMA - LIMPA E SEM LOGS
+// SEÇÃO DE DADOS DA TURMA - LIMPA E SIMPLES
 
 'use client';
 
@@ -18,7 +18,7 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
   // Hook de cursos
   const { cursos, loading: cursosLoading, error: cursosError, refetch, clearError } = useCursoList();
   
-  // Observa os valores selecionados
+  // Observa os valores selecionados para preview
   const cursoSelecionado = watch('id_curso');
   const turnoSelecionado = watch('turno');
   const nomeValue = watch('nome');
