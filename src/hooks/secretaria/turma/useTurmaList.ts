@@ -1,152 +1,247 @@
-// src/hooks/secretaria/turma/useTurmaForm.ts
-// Hook apenas para cadastro de turmas (sem busca por ID)
+// src/hooks/secretaria/turma/useTurmaList.ts
+// ESTRATÉGIA PARA BACKEND COM UUID - FOCO EM ENDPOINTS DE LISTAGEM
 
-import { useState, useContext, useCallback } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useState, useContext, useCallback, useEffect } from 'react';
 import { AuthContext } from '@/contexts/AuthContext';
 import { getAPIClient, handleApiError } from '@/services/api';
-import { transformTurmaFormToDTO } from '@/utils/transformers';
-import {
-  turmaFormSchema,
-  type TurmaFormData,
-} from '@/schemas';
-import { AxiosError } from 'axios';
+import type { TurmaResponse } from '@/schemas';
 
-// ===== INTERFACES =====
-export interface TurmaFormProps {
-  onSuccess?: () => void;
-  onCancel?: () => void;
-}
-
-export interface UseTurmaFormReturn {
-  form: ReturnType<typeof useForm<TurmaFormData>>;
-  onSubmit: (data: TurmaFormData) => Promise<void>;
+// ===== INTERFACE =====
+export interface UseTurmaListReturn {
+  turmas: TurmaResponse[];
   loading: boolean;
   error: string | null;
-  successMessage: string | null;
-  clearMessages: () => void;
-}
-
-interface UseTurmaFormOptions {
-  onSuccess?: () => void;
-  initialData?: Partial<TurmaFormData>;
+  refetch: () => void;
+  clearError: () => void;
 }
 
 // ===== HELPER FUNCTIONS =====
-function handleSubmitError(error: unknown): string {
-  if (!(error instanceof Error) && typeof error !== 'object') {
-    return String(error);
-  }
-
-  const axiosError = error as AxiosError;
-  const status = axiosError.response?.status;
-  const responseData = axiosError.response?.data as { message?: string; error?: string } | undefined;
-
-  // Tratamento específico por status
+function handleTurmaError(error: unknown, context: string): string {
+  const { message, status } = handleApiError(error, context);
+  
   switch (status) {
-    case 400:
-      const errorMsg = responseData?.message || responseData?.error;
-      return errorMsg 
-        ? `Erro de validação: ${errorMsg}`
-        : 'Dados inválidos. Verifique se todos os campos estão corretos.';
-    
+    case 401:
+      return 'Sem autorização. Faça login novamente.';
+    case 403:
+      return 'Sem permissão para visualizar turmas.';
     case 404:
-      return 'Endpoint não encontrado. Verifique se o backend está rodando.';
-    
-    case 409:
-      return 'Já existe uma turma com esse nome neste curso.';
-    
+      return 'Nenhuma turma encontrada para esta secretaria.';
     case 500:
       return 'Erro interno do servidor. Tente novamente.';
-    
     default:
-      const { message } = handleApiError(axiosError, 'CreateTurma');
       return message;
   }
 }
 
-// ===== HOOK: FORMULÁRIO DE TURMA =====
-export const useTurmaForm = ({
-  onSuccess,
-  initialData,
-}: UseTurmaFormOptions = {}): UseTurmaFormReturn => {
+// Função para mapear dados das turmas (adaptada para UUID)
+function mapTurmaParaFrontend(turma: any, secretariaId: string): TurmaResponse | null {
+  if (!turma) return null;
+
+  try {
+    // Extrair dados independente do formato que vier do backend
+    const idTurma = turma.idTurma || turma.id_turma || turma.id || '';
+    const nome = turma.nome || '';
+    const ano = turma.ano || '';
+    const idCurso = turma.idCurso || turma.id_curso || '';
+    const idSecretaria = turma.idSecretaria || turma.id_secretaria || secretariaId;
+    const alunos = turma.alunos || [];
+
+    // Validações mínimas
+    if (!nome || nome.trim() === '') {
+      return null;
+    }
+
+    // FILTRO: Dados limpos para o frontend
+    return {
+      idTurma: String(idTurma),
+      nome: String(nome).trim(),
+      ano: String(ano),
+      idCurso: String(idCurso),
+      idSecretaria: String(idSecretaria),
+      alunos: Array.isArray(alunos) ? alunos : []
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ===== HOOK PRINCIPAL =====
+export const useTurmaList = (): UseTurmaListReturn => {
+  const [turmas, setTurmas] = useState<TurmaResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const { user } = useContext(AuthContext);
 
-  const form = useForm<TurmaFormData>({
-    resolver: zodResolver(turmaFormSchema),
-    mode: 'onBlur',
-    defaultValues: {
-      nome: initialData?.nome ?? '',
-      id_curso: initialData?.id_curso ?? '',
-      ano: initialData?.ano ?? new Date().getFullYear().toString(),
-      turno: initialData?.turno ?? 'DIURNO',
-    },
-  });
+  const clearError = useCallback(() => setError(null), []);
 
-  const clearMessages = useCallback(() => {
-    setSuccessMessage(null);
+  // ESTRATÉGIA FOCADA EM ENDPOINTS DE LISTAGEM (sem busca por UUID)
+  const fetchTurmas = useCallback(async (): Promise<void> => {
+    if (!user?.id) {
+      setError('ID da secretaria não encontrado. Faça login novamente.');
+      return;
+    }
+
+    console.log('🔍 Buscando turmas para secretaria:', user.id);
+    setLoading(true);
     setError(null);
-  }, []);
 
-  const onSubmit = useCallback(
-    async (data: TurmaFormData): Promise<void> => {
-      if (!user?.id) {
-        setError('ID da secretaria não encontrado. Faça login novamente.');
-        return;
-      }
+    const api = getAPIClient();
+    const turmasEncontradas: TurmaResponse[] = [];
 
-      if (!data.id_curso) {
-        setError('Curso é obrigatório. Selecione um curso.');
-        return;
-      }
+    // Lista de endpoints para tentar (em ordem de prioridade)
+    const endpointsPrioritarios = [
+      // Padrão similar aos cursos
+      `/turma/${user.id}/secretaria`,
+      
+      // Variações comuns
+      `/turmas/${user.id}`,
+      `/secretaria/${user.id}/turmas`,
+      `/turma/secretaria/${user.id}`,
+      
+      // Com prefixo /api
+      `/api/turma/${user.id}/secretaria`,
+      `/api/turmas/${user.id}`,
+      
+      // Outros padrões
+      `/turma/listar/${user.id}`,
+      `/turma/buscar/secretaria/${user.id}`,
+      `/turma/por-secretaria/${user.id}`,
+      
+      // Endpoints gerais (buscar todas e filtrar)
+      `/turma/todas`,
+      `/turmas/todas`,
+      `/api/turma/todas`,
+      
+      // Fallback: tentar sem parâmetros e filtrar depois
+      `/turma`,
+      `/turmas`,
+    ];
 
-      setLoading(true);
-      setError(null);
+    let endpointFuncionou = false;
 
+    for (let i = 0; i < endpointsPrioritarios.length; i++) {
+      const endpoint = endpointsPrioritarios[i];
+      
       try {
-        // ✅ Usar transformer que só retorna nome, ano, turno
-        const turmaDTO = transformTurmaFormToDTO(data);
+        console.log(`🔍 Tentativa ${i + 1}/${endpointsPrioritarios.length}: ${endpoint}`);
         
-        const api = getAPIClient();
+        const response = await api.get(endpoint);
         
-        // ✅ Endpoint correto do seu backend
-        const response = await api.post(
-          `/turma/criar/${user.id}/${data.id_curso}`, 
-          turmaDTO
-        );
+        console.log(`✅ Endpoint funcionou: ${endpoint}`);
+        console.log(`✅ Status: ${response.status}`);
+        console.log(`✅ Data:`, response.data);
+        
+        if (response.data) {
+          let dados = response.data;
+          
+          // Normalizar diferentes formatos de resposta
+          if (!Array.isArray(dados)) {
+            console.log('📝 Dados não são array, verificando propriedades...');
+            
+            if (dados.turmas && Array.isArray(dados.turmas)) {
+              dados = dados.turmas;
+              console.log('📝 Usando propriedade "turmas"');
+            } else if (dados.data && Array.isArray(dados.data)) {
+              dados = dados.data;
+              console.log('📝 Usando propriedade "data"');
+            } else if (dados.content && Array.isArray(dados.content)) {
+              dados = dados.content;
+              console.log('📝 Usando propriedade "content"');
+            } else if (dados.items && Array.isArray(dados.items)) {
+              dados = dados.items;
+              console.log('📝 Usando propriedade "items"');
+            } else {
+              dados = [dados];
+              console.log('📝 Transformando objeto único em array');
+            }
+          }
 
-        setSuccessMessage('Turma cadastrada com sucesso!');
+          console.log(`📝 Dados processados:`, dados);
+          console.log(`📝 Quantidade de itens: ${dados.length}`);
+
+          // Processar cada turma encontrada
+          if (Array.isArray(dados)) {
+            for (let j = 0; j < dados.length; j++) {
+              const turma = dados[j];
+              console.log(`📝 Processando turma ${j + 1}:`, turma);
+              
+              const turmaMapeada = mapTurmaParaFrontend(turma, user.id);
+              
+              if (turmaMapeada) {
+                // Se é um endpoint geral, filtrar por secretaria
+                const isEndpointGeral = endpoint.includes('/todas') || 
+                                       endpoint === '/turma' || 
+                                       endpoint === '/turmas';
+                
+                if (isEndpointGeral) {
+                  // Filtrar apenas turmas da secretaria atual
+                  if (turmaMapeada.idSecretaria === user.id) {
+                    console.log(`✅ Turma da secretaria atual: ${turmaMapeada.nome}`);
+                    turmasEncontradas.push(turmaMapeada);
+                  } else {
+                    console.log(`⏭️ Turma de outra secretaria: ${turmaMapeada.nome}`);
+                  }
+                } else {
+                  // Endpoint específico da secretaria, adicionar todas
+                  console.log(`✅ Turma encontrada: ${turmaMapeada.nome}`);
+                  turmasEncontradas.push(turmaMapeada);
+                }
+              } else {
+                console.log(`❌ Falha ao mapear turma ${j + 1}`);
+              }
+            }
+          }
+
+          endpointFuncionou = true;
+          break; // Sucesso! Parar de tentar outros endpoints
+        }
         
-        // Reset do formulário
-        form.reset({
-          nome: '',
-          id_curso: '',
-          ano: new Date().getFullYear().toString(),
-          turno: 'DIURNO',
-        });
+      } catch (err: unknown) {
+        console.log(`❌ Endpoint falhou: ${endpoint}`, err);
         
-        onSuccess?.();
+        // Se é o último endpoint, mostrar erro
+        if (i === endpointsPrioritarios.length - 1) {
+          const errorMessage = handleTurmaError(err, 'FetchTurmas');
+          setError(`Nenhum endpoint de listagem funcionou. Último erro: ${errorMessage}`);
+        }
         
-      } catch (error: unknown) {
-        const errorMessage = handleSubmitError(error);
-        setError(errorMessage);
-      } finally {
-        setLoading(false);
+        // Continuar para o próximo endpoint
+        continue;
       }
-    },
-    [user?.id, form, onSuccess]
-  );
+    }
+
+    // Remover duplicatas (caso existam)
+    const turmasUnicas = turmasEncontradas.filter((turma, index, array) => 
+      array.findIndex(t => t.idTurma === turma.idTurma) === index
+    );
+
+    console.log(`🎯 Total de turmas únicas encontradas: ${turmasUnicas.length}`);
+    setTurmas(turmasUnicas);
+    
+    // Se encontrou endpoint mas não há turmas
+    if (endpointFuncionou && turmasUnicas.length === 0) {
+      setError('Nenhuma turma cadastrada para esta secretaria.');
+    }
+    
+    setLoading(false);
+  }, [user?.id]);
+
+  const refetch = useCallback(() => {
+    clearError();
+    fetchTurmas();
+  }, [fetchTurmas, clearError]);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchTurmas();
+    }
+  }, [user?.id, fetchTurmas]);
 
   return {
-    form,
-    onSubmit,
+    turmas,
     loading,
     error,
-    successMessage,
-    clearMessages,
+    refetch,
+    clearError,
   };
 };

@@ -1,5 +1,5 @@
 // src/hooks/secretaria/turma/useTurmaForm.ts
-// HOOK SIMPLES APENAS PARA CADASTRO - SEM BUSCA
+// HOOK APENAS PARA CADASTRO - LIMPO E SIMPLES
 
 import { useState, useContext, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
@@ -81,7 +81,6 @@ export const useTurmaForm = ({
   // Submit principal
   const onSubmit = useCallback(
     async (data: TurmaFormData): Promise<void> => {
-      // Validações básicas
       if (!user?.id) {
         setError('ID da secretaria não encontrado. Faça login novamente.');
         return;
@@ -96,19 +95,11 @@ export const useTurmaForm = ({
       setError(null);
 
       try {
-        // Transform data para DTO
         const turmaDTO = transformTurmaFormToDTO(data);
-        console.log('🔄 Cadastrando turma:', turmaDTO);
-        
         const api = getAPIClient();
         
-        // POST /turma/criar/{id_secretaria}/{id_curso}
-        const response = await api.post(
-          `/turma/criar/${user.id}/${data.id_curso}`, 
-          turmaDTO
-        );
+        await api.post(`/turma/criar/${user.id}/${data.id_curso}`, turmaDTO);
 
-        console.log('✅ Turma cadastrada:', response.data);
         setSuccessMessage('Turma cadastrada com sucesso!');
         
         // Reset do formulário
@@ -119,11 +110,9 @@ export const useTurmaForm = ({
           turno: 'DIURNO',
         });
         
-        // Callback de sucesso
         onSuccess?.();
         
       } catch (error: unknown) {
-        console.error('❌ Erro ao cadastrar turma:', error);
         const errorMessage = handleSubmitError(error);
         setError(errorMessage);
       } finally {

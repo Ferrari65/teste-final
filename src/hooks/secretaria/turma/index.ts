@@ -1,5 +1,5 @@
 // src/hooks/secretaria/turma/index.ts
-// CENTRALIZADOR DOS HOOKS DE TURMA - ORGANIZADO E SIMPLES
+// HOOKS COMPLETOS: FORMULÁRIO, LISTAGEM E BUSCA INTELIGENTE
 
 // ===== HOOK DE FORMULÁRIO =====
 export { useTurmaForm } from './useTurmaForm';
@@ -8,9 +8,15 @@ export type {
   UseTurmaFormReturn 
 } from './useTurmaForm';
 
-// ===== HOOK DE BUSCA =====
-export { useTurmaSearch } from './useTurmaSearch';
-export type { 
-  FiltrosBusca,
-  UseTurmaSearchReturn
-} from './useTurmaSearch';
+// ===== HOOK DE LISTAGEM =====
+export { useTurmaList } from './useTurmaList';
+export type {
+  UseTurmaListReturn
+} from './useTurmaList';
+
+// ===== HOOK DE BUSCA INTELIGENTE =====
+export { useTurmaSearchSmart } from './useTurmaSearchSmart';
+export type {
+  TurmaEncontrada,
+  UseTurmaSearchSmartReturn
+} from './useTurmaSearchSmart';

@@ -1,5 +1,5 @@
 // src/components/secretaria/home/turma/TurmaDataSection.tsx
-// SEÇÃO DE DADOS DA TURMA - LIMPA E SEM LOGS DESNECESSÁRIOS
+// SEÇÃO DE DADOS DA TURMA - LIMPA E SEM LOGS
 
 'use client';
 
@@ -24,7 +24,7 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
   const nomeValue = watch('nome');
   const anoValue = watch('ano');
   
-  // Filtro defensivo para cursos válidos
+  // Filtro para cursos válidos e ativos
   const cursosValidos = cursos.filter((curso) => {
     if (!curso) return false;
     

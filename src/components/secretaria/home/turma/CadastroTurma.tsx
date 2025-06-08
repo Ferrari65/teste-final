@@ -1,5 +1,5 @@
 // src/components/secretaria/home/turma/CadastroTurma.tsx
-// COMPONENTE PRINCIPAL COM CADASTRO + BUSCA SIMPLES
+// COMPONENTE PRINCIPAL COM CADASTRO + LISTAGEM SIMPLES
 
 'use client';
 
@@ -8,7 +8,8 @@ import { useTurmaForm } from "@/hooks/secretaria/turma";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
 import { SuccessMessage } from "@/components/ui/SuccessMessage";
 import { TurmaDataSection } from "./TurmaDataSection";
-import BuscarTurma from "./BuscarTurma";
+import BuscarTurmaPorNome from "./BuscarTurmaPorNome";
+import ListarTurmas from "./ListarTurmas";
 import type { TurmaFormProps } from "@/hooks/secretaria/turma";
 
 interface CadastroTurmaProps extends TurmaFormProps {
@@ -163,10 +164,10 @@ export default function CadastroTurma({ onSuccess, onCancel }: CadastroTurmaProp
         </div>
       </section>
 
-      {/* ===== SEÇÃO: BUSCAR TURMAS ===== */}
+      {/* ===== SEÇÃO: LISTAGEM DE TURMAS ===== */}
       <section 
         className="bg-white rounded-lg shadow-sm border border-gray-200"
-        aria-labelledby="buscar-heading"
+        aria-labelledby="lista-heading"
       >
         <header className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center">
@@ -182,26 +183,26 @@ export default function CadastroTurma({ onSuccess, onCancel }: CadastroTurmaProp
                   strokeLinecap="round" 
                   strokeLinejoin="round" 
                   strokeWidth={2} 
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" 
+                  d="M4 6h16M4 10h16M4 14h16M4 18h16" 
                 />
               </svg>
             </div>
             <div>
               <h2 
-                id="buscar-heading"
+                id="lista-heading"
                 className="text-xl font-semibold text-gray-900"
               >
-                Buscar Turmas
+                Turmas Cadastradas
               </h2>
               <p className="text-sm text-gray-600 mt-1">
-                Encontre turmas cadastradas no sistema
+                Lista de todas as turmas cadastradas no sistema
               </p>
             </div>
           </div>
         </header>
         
         <div className="p-6">
-          <BuscarTurma />
+          <ListarTurmas />
         </div>
       </section>
 
