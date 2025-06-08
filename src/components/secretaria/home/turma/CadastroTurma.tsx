@@ -1,4 +1,5 @@
-// src/components/secretaria/home/turma/CadastroTurma.tsx - COM LISTA FUNCIONAL
+// src/components/secretaria/home/turma/CadastroTurma.tsx
+// COMPONENTE PRINCIPAL COM CADASTRO + BUSCA SIMPLES
 
 'use client';
 
@@ -7,7 +8,7 @@ import { useTurmaForm } from "@/hooks/secretaria/turma";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
 import { SuccessMessage } from "@/components/ui/SuccessMessage";
 import { TurmaDataSection } from "./TurmaDataSection";
-import ListarTurmas from "./BuscarTurma"; // ✅ Novo componente de lista
+import BuscarTurma from "./BuscarTurma";
 import type { TurmaFormProps } from "@/hooks/secretaria/turma";
 
 interface CadastroTurmaProps extends TurmaFormProps {
@@ -34,6 +35,18 @@ export default function CadastroTurma({ onSuccess, onCancel }: CadastroTurmaProp
     event.preventDefault();
     form.handleSubmit(onSubmit)(event);
   }, [form, onSubmit]);
+
+  const handleCancel = useCallback((): void => {
+    // Limpar formulário ao cancelar
+    form.reset({
+      nome: '',
+      id_curso: '',
+      ano: new Date().getFullYear().toString(),
+      turno: 'DIURNO',
+    });
+    clearMessages();
+    onCancel?.();
+  }, [form, clearMessages, onCancel]);
 
   return (
     <div className="space-y-8">
@@ -102,7 +115,7 @@ export default function CadastroTurma({ onSuccess, onCancel }: CadastroTurmaProp
               {onCancel && (
                 <button
                   type="button"
-                  onClick={onCancel}
+                  onClick={handleCancel}
                   disabled={loading}
                   className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
@@ -150,10 +163,10 @@ export default function CadastroTurma({ onSuccess, onCancel }: CadastroTurmaProp
         </div>
       </section>
 
-      {/* ===== SEÇÃO: LISTAR TURMAS ===== */}
+      {/* ===== SEÇÃO: BUSCAR TURMAS ===== */}
       <section 
         className="bg-white rounded-lg shadow-sm border border-gray-200"
-        aria-labelledby="listar-heading"
+        aria-labelledby="buscar-heading"
       >
         <header className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center">
@@ -169,26 +182,26 @@ export default function CadastroTurma({ onSuccess, onCancel }: CadastroTurmaProp
                   strokeLinecap="round" 
                   strokeLinejoin="round" 
                   strokeWidth={2} 
-                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" 
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" 
                 />
               </svg>
             </div>
             <div>
               <h2 
-                id="listar-heading"
+                id="buscar-heading"
                 className="text-xl font-semibold text-gray-900"
               >
-                Turmas Cadastradas
+                Buscar Turmas
               </h2>
               <p className="text-sm text-gray-600 mt-1">
-                Visualize, filtre e gerencie todas as turmas do sistema
+                Encontre turmas cadastradas no sistema
               </p>
             </div>
           </div>
         </header>
         
         <div className="p-6">
-          <ListarTurmas />
+          <BuscarTurma />
         </div>
       </section>
 

@@ -1,4 +1,5 @@
-// src/components/secretaria/home/turma/TurmaDataSection.tsx - SEM LOGS DESNECESSÁRIOS
+// src/components/secretaria/home/turma/TurmaDataSection.tsx
+// SEÇÃO DE DADOS DA TURMA - LIMPA E SEM LOGS DESNECESSÁRIOS
 
 'use client';
 
@@ -23,7 +24,7 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
   const nomeValue = watch('nome');
   const anoValue = watch('ano');
   
-  // Filtro defensivo e validação de cursos
+  // Filtro defensivo para cursos válidos
   const cursosValidos = cursos.filter((curso) => {
     if (!curso) return false;
     
@@ -34,8 +35,9 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
     
     const hasValidNome = curso.nome && typeof curso.nome === 'string' && curso.nome.trim() !== '';
     const hasValidDuracao = curso.duracao && typeof curso.duracao === 'number' && curso.duracao > 0;
+    const isAtivo = curso.situacao === 'ATIVO';
     
-    return hasValidId && hasValidNome && hasValidDuracao;
+    return hasValidId && hasValidNome && hasValidDuracao && isAtivo;
   });
 
   // Buscar curso selecionado
@@ -163,13 +165,13 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
               {cursosLoading 
                 ? '⏳ Carregando cursos...' 
                 : cursosError 
-                ? '❌ Erro ao carregar - clique em "Tentar novamente"'
+                ? '❌ Erro ao carregar'
                 : cursosValidos.length === 0
-                ? '📚 Nenhum curso encontrado'
+                ? '📚 Nenhum curso ativo encontrado'
                 : `📚 Selecione um curso (${cursosValidos.length} disponíveis)`}
             </option>
             
-            {/* Exibir cursos válidos */}
+            {/* Exibir apenas cursos válidos e ativos */}
             {!cursosLoading && !cursosError && cursosValidos.map((curso, index) => (
               <option 
                 key={`curso-${curso.idCurso}-${index}`}
@@ -184,7 +186,7 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
             <span className="text-sm text-red-600">{errors.id_curso.message}</span>
           )}
           
-          {/* Loading indicator dentro do select */}
+          {/* Loading indicator */}
           {cursosLoading && (
             <div className="mt-2 flex items-center text-sm text-gray-600">
               <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -195,8 +197,27 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
             </div>
           )}
           
+          {/* Aviso se não há cursos ativos */}
+          {!cursosLoading && !cursosError && cursosValidos.length === 0 && cursos.length > 0 && (
+            <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <div>
+                  <div className="text-sm font-medium text-amber-800">
+                    Cursos inativos encontrados
+                  </div>
+                  <div className="text-sm text-amber-700">
+                    Há cursos cadastrados, mas nenhum está ativo. Ative um curso primeiro.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Aviso se não há cursos */}
-          {!cursosLoading && !cursosError && cursosValidos.length === 0 && cursos.length === 0 && (
+          {!cursosLoading && !cursosError && cursos.length === 0 && (
             <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
               <div className="flex items-center gap-3">
                 <svg className="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -211,16 +232,6 @@ export const TurmaDataSection: React.FC<TurmaDataSectionProps> = ({ form }) => {
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Estatísticas dos cursos carregados (só se houver diferença) */}
-          {!cursosLoading && !cursosError && cursos.length > 0 && cursosValidos.length !== cursos.length && (
-            <div className="mt-1 text-xs text-gray-500">
-              {cursosValidos.length} de {cursos.length} cursos válidos carregados
-              <span className="text-amber-600 ml-1">
-                ({cursos.length - cursosValidos.length} cursos com dados inválidos)
-              </span>
             </div>
           )}
         </div>

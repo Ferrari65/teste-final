@@ -1,16 +1,15 @@
 // src/components/secretaria/home/turma/BuscarTurma.tsx
-// Este arquivo substitui o componente antigo que buscava apenas por ID
+// COMPONENTE SIMPLES PARA BUSCAR TURMAS APENAS POR NOME
 
 'use client';
 
 import React, { useState } from 'react';
-import { useTurmaSearch } from '@/components/secretaria/home/turma/useTurmaSearch';
-import { useCursoList } from '@/hooks/secretaria/curso';
+import { useTurmaSearch } from '@/hooks/secretaria/turma';
 import { LoadingSpinner } from '@/components/ui/loading/LoadingSpinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import type { TurmaResponse } from '@/schemas';
 
-// ===== COMPONENTE PARA MOSTRAR UMA TURMA (FORMATO CARD) =====
+// ===== COMPONENTE PARA MOSTRAR UMA TURMA =====
 interface TurmaCardProps {
   turma: TurmaResponse;
   onViewDetails?: (turma: TurmaResponse) => void;
@@ -41,10 +40,6 @@ const TurmaCard: React.FC<TurmaCardProps> = ({ turma, onViewDetails }) => {
         <div className="flex justify-between">
           <span>Curso:</span>
           <span className="font-medium">ID {turma.idCurso}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Secretaria:</span>
-          <span className="font-medium">ID {turma.idSecretaria}</span>
         </div>
         <div className="flex justify-between">
           <span>Alunos:</span>
@@ -93,52 +88,38 @@ const TurmaCard: React.FC<TurmaCardProps> = ({ turma, onViewDetails }) => {
 
 // ===== COMPONENTE PRINCIPAL =====
 export default function BuscarTurma() {
-  // Estado para controlar como mostrar os resultados (cards ou lista)
-  const [modoVisualizacao, setModoVisualizacao] = useState<'cards' | 'lista'>('cards');
-  
-  // Estado para quando o usuário clica em "Ver Detalhes"
   const [turmaSelecionada, setTurmaSelecionada] = useState<TurmaResponse | null>(null);
 
-  // Hook customizado para busca de turmas
+  // Hook de busca
   const {
-    filtros,           // Filtros atuais
-    resultados,        // Turmas encontradas
-    loading,           // Se está carregando
-    error,             // Se deu erro
-    totalEncontradas,  // Quantas turmas foram encontradas
-    atualizarFiltro,   // Função para atualizar um filtro
-    buscar,            // Função para fazer a busca
-    limparBusca,       // Função para limpar resultados
-    limparFiltros,     // Função para limpar tudo
-    clearError,        // Função para limpar erro
+    filtros,
+    resultados,
+    loading,
+    error,
+    totalEncontradas,
+    atualizarFiltro,
+    buscar,
+    limparBusca,
+    limparFiltros,
+    clearError,
   } = useTurmaSearch();
 
-  // Hook para carregar lista de cursos (para o dropdown)
-  const { cursos, loading: cursosLoading } = useCursoList();
-
-  // ===== FUNÇÕES DE CONTROLE =====
-  
   // Quando o usuário submete o formulário
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault(); // Impede o reload da página
-    buscar(); // Faz a busca
+    e.preventDefault();
+    buscar();
   };
 
   // Quando o usuário clica em "Limpar Tudo"
   const handleLimparTudo = () => {
-    limparFiltros(); // Limpa filtros e resultados
-    setTurmaSelecionada(null); // Remove turma selecionada
+    limparFiltros();
+    setTurmaSelecionada(null);
   };
 
-  // Quando o usuário clica em "Ver Detalhes" de uma turma
+  // Quando o usuário clica em "Ver Detalhes"
   const handleViewDetails = (turma: TurmaResponse) => {
     setTurmaSelecionada(turma);
   };
-
-  // Filtrar apenas cursos ativos e válidos
-  const cursosValidos = cursos.filter(curso => 
-    curso.idCurso && curso.nome && curso.situacao === 'ATIVO'
-  );
 
   return (
     <div className="space-y-6">
@@ -158,17 +139,16 @@ export default function BuscarTurma() {
               Buscar Turmas
             </h2>
             <p className="text-sm text-gray-600">
-              Use os filtros abaixo para encontrar turmas específicas
+              Digite o nome da turma para encontrá-la
             </p>
           </div>
         </div>
 
-        {/* Formulário com os campos de filtro */}
+        {/* Formulário simples */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            
+          <div className="flex gap-4">
             {/* Campo: Nome da Turma */}
-            <div>
+            <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Nome da Turma
               </label>
@@ -182,90 +162,11 @@ export default function BuscarTurma() {
               />
             </div>
 
-            {/* Campo: Curso */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Curso
-              </label>
-              <select
-                value={filtros.curso || ''}
-                onChange={(e) => atualizarFiltro('curso', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                disabled={loading || cursosLoading}
-              >
-                <option value="">Todos os cursos</option>
-                {cursosValidos.map((curso) => (
-                  <option key={curso.idCurso} value={curso.idCurso}>
-                    {curso.nome}
-                  </option>
-                ))}
-              </select>
-              {cursosLoading && (
-                <p className="text-xs text-gray-500 mt-1">Carregando cursos...</p>
-              )}
-            </div>
-
-            {/* Campo: Ano */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ano Letivo
-              </label>
-              <input
-                type="text"
-                value={filtros.ano || ''}
-                onChange={(e) => atualizarFiltro('ano', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                placeholder="Ex: 2024"
-                maxLength={4}
-                pattern="\d{4}"
-                disabled={loading}
-              />
-            </div>
-
-            {/* Campo: Turno */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Turno
-              </label>
-              <select
-                value={filtros.turno || ''}
-                onChange={(e) => atualizarFiltro('turno', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                disabled={loading}
-              >
-                <option value="">Todos os turnos</option>
-                <option value="DIURNO">🌅 Diurno</option>
-                <option value="NOTURNO">🌙 Noturno</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Botões de Ação */}
-          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-            <div className="flex items-center space-x-2">
-              {/* Mostrar quantos filtros estão ativos */}
-              {Object.values(filtros).filter(v => v && v.toString().trim() !== '').length > 0 && (
-                <span className="text-sm text-gray-600">
-                  {Object.values(filtros).filter(v => v && v.toString().trim() !== '').length} filtro(s) ativo(s)
-                </span>
-              )}
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              {/* Botão Limpar */}
-              <button
-                type="button"
-                onClick={handleLimparTudo}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                disabled={loading}
-              >
-                Limpar Tudo
-              </button>
-              
-              {/* Botão Buscar */}
+            {/* Botões */}
+            <div className="flex items-end space-x-2">
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !filtros.nome?.trim()}
                 className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
               >
                 {loading ? (
@@ -278,9 +179,18 @@ export default function BuscarTurma() {
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    Buscar Turmas
+                    Buscar
                   </>
                 )}
+              </button>
+              
+              <button
+                type="button"
+                onClick={handleLimparTudo}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                disabled={loading}
+              >
+                Limpar
               </button>
             </div>
           </div>
@@ -299,7 +209,7 @@ export default function BuscarTurma() {
       )}
 
       {/* ===== ÁREA DE RESULTADOS ===== */}
-      {(resultados.length > 0 || (!loading && totalEncontradas === 0 && Object.values(filtros).some(v => v))) && (
+      {(resultados.length > 0 || (!loading && totalEncontradas === 0 && filtros.nome)) && (
         <div className="bg-white border border-gray-200 rounded-lg">
           
           {/* Header dos Resultados */}
@@ -311,137 +221,27 @@ export default function BuscarTurma() {
                 </h3>
                 <p className="text-sm text-gray-600 mt-1">
                   {totalEncontradas > 0 
-                    ? `${totalEncontradas} turma${totalEncontradas !== 1 ? 's' : ''} encontrada${totalEncontradas !== 1 ? 's' : ''}`
-                    : 'Nenhuma turma encontrada com os filtros especificados'
+                    ? `${totalEncontradas} turma${totalEncontradas !== 1 ? 's' : ''} encontrada${totalEncontradas !== 1 ? 's' : ''} com "${filtros.nome}"`
+                    : `Nenhuma turma encontrada com "${filtros.nome}"`
                   }
                 </p>
               </div>
-              
-              {/* Controles de Visualização */}
-              {resultados.length > 0 && (
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-600">Visualizar como:</span>
-                  <div className="flex border border-gray-300 rounded-md overflow-hidden">
-                    {/* Botão para visualização em cards */}
-                    <button
-                      onClick={() => setModoVisualizacao('cards')}
-                      className={`px-3 py-1 text-sm transition-colors ${
-                        modoVisualizacao === 'cards'
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-white text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
-                    </button>
-                    {/* Botão para visualização em lista */}
-                    <button
-                      onClick={() => setModoVisualizacao('lista')}
-                      className={`px-3 py-1 text-sm transition-colors ${
-                        modoVisualizacao === 'lista'
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-white text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
           {/* Conteúdo dos Resultados */}
           <div className="p-6">
             {resultados.length > 0 ? (
-              modoVisualizacao === 'cards' ? (
-                /* Visualização em Cards (como cartões) */
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {resultados.map((turma) => (
-                    <TurmaCard 
-                      key={turma.idTurma} 
-                      turma={turma} 
-                      onViewDetails={handleViewDetails}
-                    />
-                  ))}
-                </div>
-              ) : (
-                /* Visualização em Lista/Tabela */
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Nome da Turma
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Ano
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Curso
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Alunos
-                        </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Ações
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {resultados.map((turma) => (
-                        <tr key={turma.idTurma} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-8 w-8">
-                                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                                  <svg className="h-4 w-4 text-indigo-600" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M12 12.75c1.63 0 3.07.39 4.24.9c1.08.48 1.76 1.56 1.76 2.73V18H6v-1.61c0-1.18.68-2.26 1.76-2.73c1.17-.52 2.61-.91 4.24-.91z M4 13c1.1 0 2-.9 2-2c0-1.1-.9-2-2-2s-2 .9-2 2c0 1.1.9 2 2 2z M12 6c1.66 0 3 1.34 3 3c0 1.66-1.34 3-3 3s-3-1.34-3-3c0-1.66 1.34-3 3-3z" />
-                                  </svg>
-                                </div>
-                              </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">
-                                  {turma.nome}
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  ID: {turma.idTurma}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900 font-medium">
-                              {turma.ano}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              ID {turma.idCurso}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {turma.alunos?.length || 0} aluno(s)
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button
-                              onClick={() => handleViewDetails(turma)}
-                              className="text-indigo-600 hover:text-indigo-900 transition-colors"
-                            >
-                              Ver Detalhes
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )
+              /* Visualização em Cards */
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {resultados.map((turma) => (
+                  <TurmaCard 
+                    key={turma.idTurma} 
+                    turma={turma} 
+                    onViewDetails={handleViewDetails}
+                  />
+                ))}
+              </div>
             ) : (
               /* Mensagem quando não há resultados */
               <div className="text-center py-12">
@@ -454,13 +254,13 @@ export default function BuscarTurma() {
                   Nenhuma turma encontrada
                 </h3>
                 <p className="text-gray-600 mb-6">
-                  Tente ajustar os filtros ou criar uma nova busca.
+                  Não encontramos nenhuma turma com o nome "{filtros.nome}".
                 </p>
                 <button
                   onClick={handleLimparTudo}
                   className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
-                  Limpar Filtros
+                  Nova Busca
                 </button>
               </div>
             )}
@@ -573,7 +373,7 @@ export default function BuscarTurma() {
 
       {/* ===== ESTADO VAZIO (quando não há busca ainda) ===== */}
       {!loading && resultados.length === 0 && totalEncontradas === 0 && 
-       !Object.values(filtros).some(v => v && v.toString().trim() !== '') && (
+       (!filtros.nome || filtros.nome.trim() === '') && (
         <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
           <div className="w-16 h-16 bg-indigo-100 rounded-lg flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -584,7 +384,7 @@ export default function BuscarTurma() {
             Pronto para buscar turmas!
           </h3>
           <p className="text-gray-600">
-            Preencha os filtros acima e clique em "Buscar Turmas" para encontrar as turmas que você procura.
+            Digite o nome da turma acima e clique em "Buscar" para encontrar as turmas que você procura.
           </p>
         </div>
       )}
