@@ -1,25 +1,45 @@
-// src/services/api.ts - VERSÃO LIMPA E OTIMIZADA
+// src/services/api.ts - VERSÃO FINAL CORRIGIDA
 
 import axios, { AxiosInstance, AxiosHeaders, AxiosError } from 'axios';
-import { 
-  API_CONFIG, 
-  AUTH_CONFIG, 
-  ERROR_MESSAGES,
-  ENV
-} from '@/config/app';
+
+// ===== CONFIGURAÇÕES DIRETAS (sem import problemático) =====
+const API_CONFIG = {
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  }
+} as const;
+
+const AUTH_CONFIG = {
+  tokenCookieName: 'nextauth.token',
+  tokenLocalStorageKey: 'nextauth.token',
+  secretariaIdKey: 'secretaria_id'
+} as const;
+
+const ERROR_MESSAGES = {
+  INVALID_CREDENTIALS: 'Email ou senha incorretos.',
+  UNAUTHORIZED: 'Sem permissão para acessar esta área.',
+  NETWORK_ERROR: 'Erro de conexão. Verifique sua internet.',
+  SERVER_ERROR: 'Erro no servidor. Tente novamente.',
+  UNKNOWN: 'Erro desconhecido. Contate o suporte.'
+} as const;
+
+const ENV = {
+  isServer: typeof window === 'undefined'
+} as const;
 
 // ===== TOKEN MANAGER =====
 function getToken(): string | null {
   if (ENV.isServer) return null;
   
   try {
-    // Priorizar cookie
     const cookieMatch = document.cookie.match(new RegExp(`${AUTH_CONFIG.tokenCookieName}=([^;]+)`));
     if (cookieMatch?.[1]) {
       return cookieMatch[1];
     }
     
-    // Fallback localStorage
     const localToken = localStorage.getItem(AUTH_CONFIG.tokenLocalStorageKey);
     if (localToken) {
       return localToken;
@@ -93,8 +113,9 @@ function getErrorMessage(error: AxiosError): string {
 // ===== AXIOS INSTANCE =====
 export function getAPIClient(): AxiosInstance {
   const api = axios.create({
-    ...API_CONFIG,
+    baseURL: API_CONFIG.baseURL,
     timeout: API_CONFIG.timeout,
+    headers: API_CONFIG.headers,
   });
 
   // ===== REQUEST INTERCEPTOR =====
