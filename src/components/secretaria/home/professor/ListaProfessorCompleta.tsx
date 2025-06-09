@@ -1,4 +1,4 @@
-// src/components/secretaria/home/professor/ListaProfessorCompleta.tsx - ARQUIVO COMPLETO
+// src/components/secretaria/home/professor/ListaProfessorCompleta.tsx - VERSÃO CORRIGIDA
 
 'use client';
 
@@ -121,7 +121,7 @@ const Pagination: React.FC<PaginationProps> = ({
   );
 };
 
-// ===== MODAL DE DETALHES DO PROFESSOR =====
+// ===== ✅ MODAL DE DETALHES CORRIGIDO (SEM CPF VISÍVEL) =====
 interface ModalDetalhesProps {
   professor: ProfessorResponse;
   onClose: () => void;
@@ -151,7 +151,7 @@ const ModalDetalhes: React.FC<ModalDetalhesProps> = ({ professor, onClose, onEdi
                   Detalhes do Professor
                 </h3>
                 
-                {/* Informações do Professor */}
+                {/* ✅ INFORMAÇÕES SEM CPF */}
                 <div className="space-y-3">
                   <div>
                     <label className="text-sm font-medium text-gray-600">Nome:</label>
@@ -160,8 +160,8 @@ const ModalDetalhes: React.FC<ModalDetalhesProps> = ({ professor, onClose, onEdi
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium text-gray-600">CPF:</label>
-                      <p className="text-sm text-gray-900">{formatCPF(professor.cpf)}</p>
+                      <label className="text-sm font-medium text-gray-600">ID:</label>
+                      <p className="text-sm text-gray-900">#{professor.id_professor ? professor.id_professor.slice(-6) : 'N/A'}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-600">Sexo:</label>
@@ -231,7 +231,7 @@ const ModalDetalhes: React.FC<ModalDetalhesProps> = ({ professor, onClose, onEdi
   );
 };
 
-// ===== COMPONENTE PRINCIPAL =====
+// ===== COMPONENTE PRINCIPAL CORRIGIDO =====
 interface ListaProfessorCompletaProps {
   onEditarProfessor?: (professor: ProfessorResponse) => void;
 }
@@ -262,6 +262,7 @@ export default function ListaProfessorCompleta({ onEditarProfessor }: ListaProfe
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [professorSelecionado, setProfessorSelecionado] = useState<ProfessorResponse | null>(null);
   const [filtro, setFiltro] = useState('');
+  const [professoresProcessando, setProfessoresProcessando] = useState<Set<string>>(new Set());
 
   // Filtrar e ordenar professores
   const professoresFiltrados = useMemo(() => {
@@ -271,8 +272,8 @@ export default function ListaProfessorCompleta({ onEditarProfessor }: ListaProfe
     if (filtro.trim()) {
       resultado = resultado.filter(professor =>
         professor.nome.toLowerCase().includes(filtro.toLowerCase()) ||
-        professor.email.toLowerCase().includes(filtro.toLowerCase()) ||
-        professor.cpf.includes(filtro.replace(/\D/g, ''))
+        professor.email.toLowerCase().includes(filtro.toLowerCase())
+        // ✅ REMOVIDO FILTRO POR CPF
       );
     }
 
@@ -331,35 +332,83 @@ export default function ListaProfessorCompleta({ onEditarProfessor }: ListaProfe
     setCurrentPage(1);
   }, [sortField]);
 
-  // Toggle de situação com atualização otimista
+  // ✅ TOGGLE DE SITUAÇÃO CORRIGIDO - PROCESSA APENAS UM PROFESSOR
   const handleToggleSituacao = useCallback(async (professor: ProfessorResponse) => {
+    // ✅ VERIFICAR SE JÁ ESTÁ PROCESSANDO ESTE PROFESSOR
+    if (professoresProcessando.has(professor.id_professor)) {
+      console.log('⏳ Professor já está sendo processado:', professor.nome);
+      return;
+    }
+
     const novaSituacao = professor.situacao === 'ATIVO' ? 'INATIVO' : 'ATIVO';
     
-    // Atualizar imediatamente na tela
+    console.log('🔄 Alterando situação do professor:', {
+      id: professor.id_professor,
+      nome: professor.nome,
+      situacaoAtual: professor.situacao,
+      novaSituacao: novaSituacao
+    });
+
+    // ✅ MARCAR COMO PROCESSANDO
+    setProfessoresProcessando(prev => new Set(prev).add(professor.id_professor));
+    
+    // ✅ ATUALIZAR IMEDIATAMENTE NA TELA (OTIMISTA)
     const dadosOriginais = { ...professor };
     updateProfessorOptimistic(professor.id_professor, { situacao: novaSituacao });
     
     try {
+      // ✅ ENVIAR PARA API
       await updateSituacao(professor.id_professor, novaSituacao);
-    } catch (error) {
-      // Se der erro, reverter
-      revertProfessorOptimistic(professor.id_professor, dadosOriginais);
-    }
-  }, [updateSituacao, updateProfessorOptimistic, revertProfessorOptimistic]);
-
-  // Inativar professor
-  const handleInativarProfessor = useCallback(async (professor: ProfessorResponse) => {
-    if (window.confirm(`Tem certeza que deseja inativar o professor ${professor.nome}?`)) {
-      const dadosOriginais = { ...professor };
-      updateProfessorOptimistic(professor.id_professor, { situacao: 'INATIVO' });
+      console.log('✅ Situação alterada com sucesso:', professor.nome);
       
-      try {
-        await deleteProfessor(professor.id_professor);
-      } catch (error) {
-        revertProfessorOptimistic(professor.id_professor, dadosOriginais);
-      }
+    } catch (error) {
+      console.error('❌ Erro ao alterar situação:', error);
+      // ✅ REVERTER SE DEU ERRO
+      revertProfessorOptimistic(professor.id_professor, dadosOriginais);
+    } finally {
+      // ✅ DESMARCAR COMO PROCESSANDO
+      setProfessoresProcessando(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(professor.id_professor);
+        return newSet;
+      });
     }
-  }, [deleteProfessor, updateProfessorOptimistic, revertProfessorOptimistic]);
+  }, [updateSituacao, updateProfessorOptimistic, revertProfessorOptimistic, professoresProcessando]);
+
+  // ✅ INATIVAR PROFESSOR CORRIGIDO
+  const handleInativarProfessor = useCallback(async (professor: ProfessorResponse) => {
+    if (!window.confirm(`Tem certeza que deseja inativar o professor ${professor.nome}?`)) {
+      return;
+    }
+
+    // ✅ VERIFICAR SE JÁ ESTÁ PROCESSANDO
+    if (professoresProcessando.has(professor.id_professor)) {
+      return;
+    }
+
+    console.log('🗑️ Inativando professor:', professor.nome);
+
+    // ✅ MARCAR COMO PROCESSANDO
+    setProfessoresProcessando(prev => new Set(prev).add(professor.id_professor));
+    
+    const dadosOriginais = { ...professor };
+    updateProfessorOptimistic(professor.id_professor, { situacao: 'INATIVO' });
+    
+    try {
+      await deleteProfessor(professor.id_professor);
+      console.log('✅ Professor inativado com sucesso:', professor.nome);
+    } catch (error) {
+      console.error('❌ Erro ao inativar professor:', error);
+      revertProfessorOptimistic(professor.id_professor, dadosOriginais);
+    } finally {
+      // ✅ DESMARCAR COMO PROCESSANDO
+      setProfessoresProcessando(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(professor.id_professor);
+        return newSet;
+      });
+    }
+  }, [deleteProfessor, updateProfessorOptimistic, revertProfessorOptimistic, professoresProcessando]);
 
   const getSortIcon = (field: 'nome' | 'email' | 'situacao') => {
     if (sortField !== field) {
@@ -459,11 +508,11 @@ export default function ListaProfessorCompleta({ onEditarProfessor }: ListaProfe
         </div>
         
         <div className="flex items-center space-x-3">
-          {/* Filtro de busca */}
+          {/* ✅ FILTRO SEM CPF */}
           <div className="relative">
             <input
               type="text"
-              placeholder="Buscar professor..."
+              placeholder="Buscar por nome ou email..."
               value={filtro}
               onChange={(e) => {
                 setFiltro(e.target.value);
@@ -560,111 +609,126 @@ export default function ListaProfessorCompleta({ onEditarProfessor }: ListaProfe
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {professoresExibidos.map((professor, index) => (
-                  <tr 
-                    key={`professor-${professor.id_professor}-${index}`} 
-                    className="hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                            <span className="text-sm font-medium text-indigo-600">
-                              {professor.nome.charAt(0).toUpperCase()}
-                            </span>
+                {professoresExibidos.map((professor, index) => {
+                  const isProcessando = professoresProcessando.has(professor.id_professor);
+                  
+                  return (
+                    <tr 
+                      key={`professor-${professor.id_professor}-${index}`} 
+                      className={`transition-colors ${isProcessando ? 'bg-yellow-50' : 'hover:bg-gray-50'}`}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10">
+                            <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                              <span className="text-sm font-medium text-indigo-600">
+                                {professor.nome.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {professor.nome}
+                            </div>
+                            {/* ✅ REMOVIDO CPF - MOSTRAR APENAS ID PARCIAL */}
+                            <div className="text-sm text-gray-500">
+                              ID: #{professor.id_professor ? professor.id_professor.slice(-6) : 'N/A'}
+                            </div>
                           </div>
                         </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {professor.nome}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            CPF: {formatCPF(professor.cpf)}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{professor.email}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatPhone(professor.telefone)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-all duration-200 ${
-                        professor.situacao === 'ATIVO' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        <svg 
-                          className={`w-1.5 h-1.5 mr-1.5 transition-colors duration-200 ${
-                            professor.situacao === 'ATIVO' ? 'text-green-400' : 'text-red-400'
-                          }`} 
-                          fill="currentColor" 
-                          viewBox="0 0 8 8"
-                        >
-                          <circle cx={4} cy={4} r={3} />
-                        </svg>
-                        {professor.situacao}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end space-x-2">
-                        {/* Botão Ver Detalhes */}
-                        <button
-                          onClick={() => setProfessorSelecionado(professor)}
-                          className="text-blue-600 hover:text-blue-900 transition-colors"
-                          title="Ver detalhes"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        </button>
-
-                        {/* Toggle Ativo/Inativo */}
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs text-gray-600">
-                            {professor.situacao === 'ATIVO' ? 'Ativo' : 'Inativo'}
-                          </span>
-                          <button
-                            onClick={() => handleToggleSituacao(professor)}
-                            disabled={actionLoading}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 ${
-                              professor.situacao === 'ATIVO' 
-                                ? 'bg-blue-600 shadow-md' 
-                                : 'bg-gray-200'
-                            }`}
-                            title={`${professor.situacao === 'ATIVO' ? 'Desativar' : 'Ativar'} professor`}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{professor.email}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{formatPhone(professor.telefone)}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-all duration-200 ${
+                          professor.situacao === 'ATIVO' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          <svg 
+                            className={`w-1.5 h-1.5 mr-1.5 transition-colors duration-200 ${
+                              professor.situacao === 'ATIVO' ? 'text-green-400' : 'text-red-400'
+                            }`} 
+                            fill="currentColor" 
+                            viewBox="0 0 8 8"
                           >
-                            <span className="sr-only">
-                              {professor.situacao === 'ATIVO' ? 'Desativar' : 'Ativar'} professor
-                            </span>
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-sm ${
-                                professor.situacao === 'ATIVO' ? 'translate-x-6' : 'translate-x-1'
-                              }`}
-                            />
-                          </button>
-                        </div>
-
-                        {/* Botão Inativar */}
-                        {professor.situacao === 'ATIVO' && (
+                            <circle cx={4} cy={4} r={3} />
+                          </svg>
+                          {professor.situacao}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end space-x-2">
+                          {/* Botão Ver Detalhes */}
                           <button
-                            onClick={() => handleInativarProfessor(professor)}
-                            disabled={actionLoading}
-                            className="text-red-600 hover:text-red-900 transition-colors disabled:opacity-50"
-                            title="Inativar professor"
+                            onClick={() => setProfessorSelecionado(professor)}
+                            className="text-blue-600 hover:text-blue-900 transition-colors"
+                            title="Ver detalhes"
+                            disabled={isProcessando}
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+
+                          {/* ✅ TOGGLE ATIVO/INATIVO CORRIGIDO */}
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs text-gray-600">
+                              {professor.situacao === 'ATIVO' ? 'Ativo' : 'Inativo'}
+                            </span>
+                            <button
+                              onClick={() => handleToggleSituacao(professor)}
+                              disabled={isProcessando || actionLoading}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 ${
+                                professor.situacao === 'ATIVO' 
+                                  ? 'bg-blue-600 shadow-md' 
+                                  : 'bg-gray-200'
+                              } ${isProcessando ? 'animate-pulse' : ''}`}
+                              title={`${professor.situacao === 'ATIVO' ? 'Desativar' : 'Ativar'} professor`}
+                            >
+                              <span className="sr-only">
+                                {professor.situacao === 'ATIVO' ? 'Desativar' : 'Ativar'} professor
+                              </span>
+                              {isProcessando ? (
+                                <div className="w-4 h-4 bg-white rounded-full flex items-center justify-center transform transition-transform duration-200 translate-x-1">
+                                  <svg className="w-2 h-2 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                  </svg>
+                                </div>
+                              ) : (
+                                <span
+                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-sm ${
+                                    professor.situacao === 'ATIVO' ? 'translate-x-6' : 'translate-x-1'
+                                  }`}
+                                />
+                              )}
+                            </button>
+                          </div>
+
+                          {/* Botão Inativar */}
+                          {professor.situacao === 'ATIVO' && (
+                            <button
+                              onClick={() => handleInativarProfessor(professor)}
+                              disabled={isProcessando || actionLoading}
+                              className="text-red-600 hover:text-red-900 transition-colors disabled:opacity-50"
+                              title="Inativar professor"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

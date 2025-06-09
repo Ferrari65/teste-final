@@ -1,4 +1,4 @@
-// src/components/secretaria/home/professor/CadastroProfessorCompleto.tsx
+// src/components/secretaria/home/professor/CadastroProfessor.tsx - VERSÃO CORRIGIDA
 
 'use client';
 
@@ -12,7 +12,7 @@ import { AddressSection } from './AddressSection';
 interface CadastroProfessorCompletoProps {
   onSuccess?: () => void;
   onCancel?: () => void;
-  professorParaEditar?: ProfessorResponse | null; // Se vier preenchido, é modo edição
+  professorParaEditar?: ProfessorResponse | null;
   modoEdicao?: boolean;
 }
 
@@ -23,12 +23,12 @@ export default function CadastroProfessorCompleto({
   modoEdicao = false
 }: CadastroProfessorCompletoProps) {
   
-  // Se tem professor para editar, preparar os dados iniciais
+  // ✅ PREPARAR DADOS INICIAIS CORRETAMENTE
   const dadosIniciais = professorParaEditar ? {
     nome: professorParaEditar.nome,
     cpf: professorParaEditar.cpf,
     email: professorParaEditar.email,
-    senha: '', // Senha sempre vazia para segurança
+    senha: '', // ✅ SEMPRE VAZIO PARA SEGURANÇA
     telefone: professorParaEditar.telefone,
     data_nasc: professorParaEditar.data_nasc,
     sexo: professorParaEditar.sexo as 'M' | 'F',
@@ -39,6 +39,7 @@ export default function CadastroProfessorCompleto({
     uf: professorParaEditar.uf
   } : undefined;
 
+  // ✅ USAR O HOOK CORRIGIDO
   const {
     form,
     onSubmit,
@@ -53,14 +54,16 @@ export default function CadastroProfessorCompleto({
     professorId: professorParaEditar?.id_professor
   });
 
-  // Quando receber um professor para editar, preencher o formulário
+  // ✅ PREENCHER FORMULÁRIO QUANDO RECEBER DADOS PARA EDITAR
   useEffect(() => {
     if (professorParaEditar && modoEdicao) {
+      console.log('🔄 Preenchendo formulário para edição:', professorParaEditar.nome);
+      
       form.reset({
         nome: professorParaEditar.nome,
         cpf: professorParaEditar.cpf,
         email: professorParaEditar.email,
-        senha: '', // Sempre deixar vazio
+        senha: '', // ✅ SEMPRE VAZIO
         telefone: professorParaEditar.telefone,
         data_nasc: professorParaEditar.data_nasc,
         sexo: professorParaEditar.sexo as 'M' | 'F',
@@ -70,12 +73,16 @@ export default function CadastroProfessorCompleto({
         cidade: professorParaEditar.cidade,
         uf: professorParaEditar.uf
       });
+      
+      // ✅ LIMPAR MENSAGENS ANTERIORES
+      clearMessages();
     }
-  }, [professorParaEditar, modoEdicao, form]);
+  }, [professorParaEditar, modoEdicao, form, clearMessages]);
 
+  // ✅ FUNÇÃO PARA CANCELAR COM LÓGICA CORRETA
   const handleCancel = () => {
     if (!isEditMode) {
-      // Só limpa o formulário se não estiver editando
+      // ✅ SÓ LIMPAR FORMULÁRIO SE NÃO ESTIVER EDITANDO
       form.reset({
         nome: '',
         cpf: '',
@@ -95,14 +102,16 @@ export default function CadastroProfessorCompleto({
     onCancel?.();
   };
 
+  // ✅ FUNÇÃO PARA SUBMIT COM TRATAMENTO DE ERRO
   const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    console.log('📝 Submetendo formulário no modo:', isEditMode ? 'EDIÇÃO' : 'CADASTRO');
     form.handleSubmit(onSubmit)(event);
   };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      {/* Header do Formulário */}
+      {/* ✅ HEADER DO FORMULÁRIO MELHORADO */}
       <header className="px-6 py-4 border-b border-gray-200">
         <div className="flex items-center">
           <div className={`w-12 h-12 ${isEditMode ? 'bg-gradient-to-br from-orange-500 to-red-600' : 'bg-gradient-to-br from-blue-500 to-indigo-600'} rounded-lg flex items-center justify-center mr-4 flex-shrink-0`}>
@@ -122,7 +131,7 @@ export default function CadastroProfessorCompleto({
             </h1>
             <p className="text-sm text-gray-600 mt-1">
               {isEditMode 
-                ? 'Atualize as informações do professor' 
+                ? `Atualizando dados de: ${professorParaEditar?.nome || 'Professor'}`
                 : 'Preencha as informações do professor para cadastrá-lo no sistema'
               }
             </p>
@@ -130,9 +139,9 @@ export default function CadastroProfessorCompleto({
         </div>
       </header>
 
-      {/* Conteúdo do Formulário */}
+      {/* ✅ CONTEÚDO DO FORMULÁRIO */}
       <div className="p-6">
-        {/* Mensagens de Feedback */}
+        {/* ✅ MENSAGENS DE FEEDBACK MELHORADAS */}
         <div className="space-y-4 mb-6">
           {successMessage && (
             <SuccessMessage 
@@ -149,7 +158,7 @@ export default function CadastroProfessorCompleto({
           )}
         </div>
 
-        {/* Informação sobre edição */}
+        {/* ✅ INFORMAÇÃO SOBRE EDIÇÃO MELHORADA */}
         {isEditMode && professorParaEditar && (
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
             <div className="flex items-start">
@@ -160,13 +169,14 @@ export default function CadastroProfessorCompleto({
               </div>
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-orange-800">
-                  Editando: {professorParaEditar.nome}
+                  Modo Edição: {professorParaEditar.nome}
                 </h3>
                 <div className="mt-2 text-sm text-orange-700">
                   <ul className="list-disc list-inside space-y-1">
-                    <li>Para manter a senha atual, deixe o campo senha vazio</li>
-                    <li>Apenas os campos alterados serão atualizados</li>
-                    <li>O CPF pode ser alterado se necessário</li>
+                    <li><strong>Senha:</strong> Deixe vazio para manter a senha atual</li>
+                    <li><strong>CPF e Email:</strong> Podem ser alterados se necessário</li>
+                    <li><strong>Outros campos:</strong> Serão atualizados conforme preenchido</li>
+                    <li><strong>Validação:</strong> Todos os campos são validados ao salvar</li>
                   </ul>
                 </div>
               </div>
@@ -174,23 +184,23 @@ export default function CadastroProfessorCompleto({
           </div>
         )}
 
-        {/* Formulário */}
+        {/* ✅ FORMULÁRIO PRINCIPAL */}
         <form 
           onSubmit={handleFormSubmit}
           className="space-y-6"
           noValidate
           aria-describedby={error ? "error-message" : undefined}
         >
-          {/* Seção: Dados Pessoais */}
+          {/* ✅ SEÇÃO: DADOS PESSOAIS */}
           <PersonalDataSection 
             form={form} 
             modoEdicao={isEditMode}
           />
 
-          {/* Seção: Endereço */}
+          {/* ✅ SEÇÃO: ENDEREÇO */}
           <AddressSection form={form} />
 
-          {/* Botões de Ação */}
+          {/* ✅ BOTÕES DE AÇÃO MELHORADOS */}
           <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
             {onCancel && (
               <button
@@ -207,7 +217,7 @@ export default function CadastroProfessorCompleto({
             <button
               type="submit"
               disabled={loading}
-              className={`px-4 py-2 text-white rounded-md hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center min-w-[120px] justify-center ${
+              className={`px-6 py-2 text-white rounded-md hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center min-w-[140px] justify-center ${
                 isEditMode 
                   ? 'bg-orange-600 hover:bg-orange-700 focus:ring-orange-500' 
                   : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
@@ -239,9 +249,6 @@ export default function CadastroProfessorCompleto({
                   <span id="loading-message">
                     {isEditMode ? 'Atualizando...' : 'Salvando...'}
                   </span>
-                  <span className="sr-only">
-                    {isEditMode ? 'Processando atualização do professor...' : 'Processando cadastro do professor...'}
-                  </span>
                 </>
               ) : (
                 isEditMode ? 'Atualizar Professor' : 'Cadastrar Professor'
@@ -251,13 +258,13 @@ export default function CadastroProfessorCompleto({
         </form>
       </div>
 
-      {/* Loading overlay global para formulário */}
+      {/* ✅ LOADING OVERLAY GLOBAL MELHORADO */}
       {loading && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50"
           aria-hidden="true"
         >
-          <div className="bg-white rounded-lg p-6 flex items-center space-x-4 shadow-xl">
+          <div className="bg-white rounded-lg p-6 flex items-center space-x-4 shadow-xl max-w-sm">
             <svg 
               className="animate-spin h-6 w-6 text-blue-600" 
               fill="none" 
@@ -277,12 +284,17 @@ export default function CadastroProfessorCompleto({
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               />
             </svg>
-            <span className="text-gray-700 font-medium">
-              {isEditMode 
-                ? 'Atualizando professor...' 
-                : 'Processando cadastro do professor...'
-              }
-            </span>
+            <div>
+              <span className="text-gray-700 font-medium">
+                {isEditMode 
+                  ? 'Atualizando professor...' 
+                  : 'Cadastrando professor...'
+                }
+              </span>
+              <p className="text-sm text-gray-500 mt-1">
+                Por favor, aguarde...
+              </p>
+            </div>
           </div>
         </div>
       )}
