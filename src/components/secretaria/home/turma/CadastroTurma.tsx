@@ -59,7 +59,7 @@ export default function CadastroTurma({ onSuccess, onCancel }: CadastroTurmaProp
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="p-6 text-gray-600">
         {successMessage && (
           <SuccessMessage 
             message={successMessage} 

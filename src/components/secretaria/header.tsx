@@ -4,7 +4,6 @@ import React from 'react';
 
 interface User {
   email: string;
-  // outras propriedades do user se necessário
 }
 
 interface SecretariaData {
@@ -30,14 +29,14 @@ export default function Header({
   showSignOutButton = true
 }: HeaderProps) {
   return (
-    <header className="bg-white rounded-lg shadow-sm p-6">
+    <header className="w-full bg-white rounded-lg shadow-sm p-6 mb-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             {title}
           </h1>
           <p className="text-gray-600 mt-1">
-            {subtitle} <span className="font-medium">
+            {subtitle} <span className="font-medium text-sky-700">
               {secretariaData?.nome || 'Carregando...'}
             </span>
           </p>

@@ -32,7 +32,7 @@ export const CursoDataSection: React.FC<CursoDataSectionProps> = ({ form }) => {
             id="nome-curso"
             type="text"
             {...register('nome')}
-            className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 transition-colors ${
+            className={`mt-1 block w-full rounded-md text-gray-600 border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 transition-colors ${
               errors.nome 
                 ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
                 : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
@@ -67,7 +67,7 @@ export const CursoDataSection: React.FC<CursoDataSectionProps> = ({ form }) => {
             id="duracao-curso"
             type="number"
             {...register('duracao')}
-            className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 transition-colors ${
+            className={`mt-1 block w-full text-gray-600 rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 transition-colors ${
               errors.duracao 
                 ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
                 : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
