@@ -66,14 +66,13 @@ const AUTH_CONFIG = {
 
 const LOGIN_ENDPOINTS = [
   '/secretaria/auth/login',
-  '/professor/auth/login', 
-  '/aluno/login'
+  '/professor/auth/login'
+
 ] as const;
 
 const DASHBOARD_ROUTES = {
-  ROLE_SECRETARIA: '/secretaria/alunos',
-  ROLE_PROFESSOR: '/professor/home',
-  ROLE_ALUNO: '/aluno/home',
+  ROLE_SECRETARIA: '/secretaria/alunos', 
+  ROLE_PROFESSOR: '/professor/home'
 } as const;
 
 // ===== AXIOS INSTANCE =====

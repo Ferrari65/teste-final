@@ -80,7 +80,7 @@ export interface UseSecretariaDataReturn {
 }
 
 // ===== TIPOS AUXILIARES =====
-export type Role = 'ROLE_SECRETARIA' | 'ROLE_PROFESSOR' | 'ROLE_ALUNO';
+export type Role = 'ROLE_SECRETARIA' | 'ROLE_PROFESSOR' ;
 export type Status = 'ATIVO' | 'INATIVO';
 export type Sexo = 'M' | 'F';
 

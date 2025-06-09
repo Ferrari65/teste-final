@@ -7,15 +7,17 @@ import { jwtDecode } from 'jwt-decode';
 const AUTH_CONFIG = {
   tokenCookieName: 'nextauth.token',
   publicPaths: ['/login', '/redefinir'],
+  
+
   protectedRoutes: {
     '/secretaria': 'ROLE_SECRETARIA',
-    '/professor': 'ROLE_PROFESSOR', 
-    '/aluno': 'ROLE_ALUNO'
+    '/professor': 'ROLE_PROFESSOR'
   },
+  
   dashboardRoutes: {
     ROLE_SECRETARIA: '/secretaria/alunos',
-    ROLE_PROFESSOR: '/professor/home',
-    ROLE_ALUNO: '/aluno/home',
+    ROLE_PROFESSOR: '/professor/home'
+
   }
 } as const;
 
