@@ -6,16 +6,15 @@ import { useSecretariaData } from '@/hooks/shared';
 import UFEMSidebar from '@/components/secretaria/UFEMSidebar';
 import CadastroProfessor from '@/components/secretaria/home/professor/CadastroProfessor';
 import ListaProfessor from '@/components/secretaria/home/professor/ListaProf';
-import { LoadingSpinner } from '@/components/ui/loading/LoadingSpinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import Header from '@/components/secretaria/header';
 
 export default function SecretariaProfessorPage(): React.JSX.Element {
   const { user, signOut } = useContext(AuthContext);
-  const { secretariaData, loading, error } = useSecretariaData();
+  const { secretariaData, error } = useSecretariaData();
 
   const handleMenuClick = useCallback((itemId: string): void => {
-    console.log('Menu clicado:', itemId);
+    // Callback opcional para menu
   }, []);
 
   const handleSignOut = useCallback((): void => {
@@ -25,40 +24,24 @@ export default function SecretariaProfessorPage(): React.JSX.Element {
   }, [signOut]);
 
   const handleProfessorSuccess = useCallback(() => {
-    console.log('Professor cadastrado com sucesso!');
-    // Aqui você pode adicionar lógica para atualizar a lista
+    // Callback de sucesso
   }, []);
 
-  if (loading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <LoadingSpinner size="lg" />
-        <span className="sr-only">Carregando dados da secretaria...</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-        <ErrorMessage message={error} />
-      </div>
-    );
+  // Se não tem usuário, não renderizar
+  if (!user) {
+    return <div></div>;
   }
 
   return (
     <div className="flex min-h-screen bg-gray-100">
-
       <UFEMSidebar 
         onMenuItemClick={handleMenuClick}
         className="fixed left-0 top-0 z-40"
       />
-      
 
       <main className="flex-1 ml-64 p-8" role="main">
         <div className="max-w-6xl mx-auto space-y-8">
           
-
           <Header 
             title="Gerenciamento de Professores"
             subtitle="Bem-vindo(a),"
@@ -66,6 +49,11 @@ export default function SecretariaProfessorPage(): React.JSX.Element {
             user={user}
             onSignOut={handleSignOut}
           />
+
+          {error && (
+            <ErrorMessage message={error} />
+          )}
+          
           <section 
             className="bg-white rounded-lg shadow-sm"
             aria-labelledby="cadastro-heading"

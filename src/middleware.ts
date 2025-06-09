@@ -1,4 +1,4 @@
-// src/middleware.ts - VERSÃO CORRIGIDA PARA ELIMINAR PROBLEMAS DE PERMISSÃO
+// src/middleware.ts - VERSÃO FINAL SEM ERROS DE PERMISSÃO
 
 import { NextResponse, NextRequest } from 'next/server';
 import { jwtDecode } from 'jwt-decode';
@@ -19,12 +19,10 @@ const AUTH_CONFIG = {
   }
 } as const;
 
-// ===== INTERFACES =====
 interface JWTPayload {
   role: string;
   exp: number;
   sub?: string;
-  iat?: number;
 }
 
 // ===== UTILITY FUNCTIONS =====
@@ -45,168 +43,143 @@ function isPublicPath(pathname: string): boolean {
 
 function getTokenFromRequest(request: NextRequest): string | null {
   try {
-    // ✅ PRIORIZAR COOKIE
     const tokenFromCookie = request.cookies.get(AUTH_CONFIG.tokenCookieName)?.value;
-    if (tokenFromCookie && tokenFromCookie.trim() !== '') {
-      console.log('🔐 [MIDDLEWARE] Token obtido do cookie');
-      return tokenFromCookie;
-    }
-
-    console.log('🔐 [MIDDLEWARE] Nenhum token encontrado');
-    return null;
-  } catch (error) {
-    console.error('❌ [MIDDLEWARE] Erro ao obter token:', error);
+    return tokenFromCookie && tokenFromCookie.trim() !== '' ? tokenFromCookie : null;
+  } catch {
     return null;
   }
 }
 
-function isTokenValid(token: string): { valid: boolean; payload?: JWTPayload; reason?: string } {
+function isTokenValid(token: string): { valid: boolean; payload?: JWTPayload } {
   try {
     if (!token || token.trim() === '') {
-      return { valid: false, reason: 'Token vazio' };
+      return { valid: false };
     }
 
     const payload = jwtDecode<JWTPayload>(token);
     
-    // ✅ VERIFICAR EXPIRAÇÃO
-    const now = Math.floor(Date.now() / 1000);
-    const timeToExpire = payload.exp - now;
+    // Dar uma margem de 30 segundos para evitar problemas de timing
+    const now = Math.floor(Date.now() / 1000) - 30;
     
     if (payload.exp <= now) {
-      console.log('🔐 [MIDDLEWARE] Token expirado:', {
-        exp: payload.exp,
-        now,
-        expired: timeToExpire
-      });
-      return { valid: false, reason: 'Token expirado' };
+      return { valid: false };
     }
     
-    // ✅ VERIFICAR ROLE
     if (!payload.role || payload.role.trim() === '') {
-      console.log('🔐 [MIDDLEWARE] Token sem role válida');
-      return { valid: false, reason: 'Role ausente' };
+      return { valid: false };
     }
-    
-    // ✅ LOG DE SUCESSO
-    console.log('✅ [MIDDLEWARE] Token válido:', {
-      role: payload.role,
-      expiresIn: `${Math.floor(timeToExpire / 60)} minutos`,
-      sub: payload.sub
-    });
     
     return { valid: true, payload };
-  } catch (error) {
-    console.error('❌ [MIDDLEWARE] Erro ao decodificar token:', error);
-    return { valid: false, reason: 'Token malformado' };
+  } catch {
+    return { valid: false };
   }
 }
 
 function hasPermissionForRoute(userRole: string, pathname: string): boolean {
-  for (const [routePrefix, requiredRole] of Object.entries(AUTH_CONFIG.protectedRoutes)) {
+  // Se a rota não está nas rotas protegidas, permitir acesso
+  let hasProtectedRoute = false;
+  let requiredRole = '';
+  
+  for (const [routePrefix, role] of Object.entries(AUTH_CONFIG.protectedRoutes)) {
     if (pathname.startsWith(routePrefix)) {
-      const hasPermission = userRole === requiredRole;
-      console.log(`🔐 [MIDDLEWARE] Verificação de permissão:`, {
-        pathname,
-        routePrefix,
-        userRole,
-        requiredRole,
-        hasPermission
-      });
-      return hasPermission;
+      hasProtectedRoute = true;
+      requiredRole = role;
+      break;
     }
   }
   
-  // ✅ SE NÃO É ROTA PROTEGIDA, PERMITIR
-  console.log('🔐 [MIDDLEWARE] Rota não protegida:', pathname);
-  return true; 
+  // Se não é rota protegida, permitir
+  if (!hasProtectedRoute) {
+    return true;
+  }
+  
+  // Se é rota protegida, verificar role
+  return userRole === requiredRole;
 }
 
 function getDashboardRoute(role: string): string {
-  const route = AUTH_CONFIG.dashboardRoutes[role as keyof typeof AUTH_CONFIG.dashboardRoutes];
-  console.log(`🔐 [MIDDLEWARE] Dashboard route para ${role}:`, route);
-  return route || '/login';
-}
-
-function createRedirectResponse(request: NextRequest, path: string, reason?: string): NextResponse {
-  const redirectUrl = new URL(path, request.url);
-  console.log(`🔄 [MIDDLEWARE] Redirecionando para ${path}${reason ? ` (${reason})` : ''}`);
-  return NextResponse.redirect(redirectUrl);
+  return AUTH_CONFIG.dashboardRoutes[role as keyof typeof AUTH_CONFIG.dashboardRoutes] || '/login';
 }
 
 // ===== MIDDLEWARE PRINCIPAL =====
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
-  console.log(`🔍 [MIDDLEWARE] Processando: ${pathname}`);
 
-  // ✅ SKIP ARQUIVOS ESTÁTICOS E APIs
+  // Skip arquivos estáticos e APIs
   if (shouldSkipMiddleware(pathname)) {
-    console.log(`⏭️ [MIDDLEWARE] Pulando: ${pathname}`);
     return NextResponse.next();
   }
 
-  // ✅ REDIRECIONAR RAIZ PARA LOGIN
+  // Redirecionar raiz para login
   if (pathname === '/') {
-    return createRedirectResponse(request, '/login', 'raiz para login');
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // ✅ OBTER E VALIDAR TOKEN
+  // Obter token
   const token = getTokenFromRequest(request);
-  const { valid: isTokenValidResult, payload, reason } = token ? isTokenValid(token) : { valid: false, reason: 'Sem token' };
-
-  // ===== USUÁRIO NÃO AUTENTICADO =====
-  if (!isTokenValidResult || !payload) {
-    console.log(`🚫 [MIDDLEWARE] Token inválido: ${reason}`);
-    
-    // ✅ SE ESTÁ TENTANDO ACESSAR ÁREA PROTEGIDA, REDIRECIONAR PARA LOGIN
+  
+  // Se não tem token
+  if (!token) {
+    // Se está tentando acessar área protegida, redirecionar para login
     if (!isPublicPath(pathname)) {
-      const redirectUrl = new URL('/login', request.url);
-      
-      // ✅ PRESERVAR DESTINO ORIGINAL PARA REDIRECT PÓS-LOGIN
+      const loginUrl = new URL('/login', request.url);
       if (pathname !== '/login') {
-        redirectUrl.searchParams.set('redirect', pathname);
+        loginUrl.searchParams.set('redirect', pathname);
       }
-      
-      return NextResponse.redirect(redirectUrl);
+      return NextResponse.redirect(loginUrl);
     }
-    
-    // ✅ SE ESTÁ EM PÁGINA PÚBLICA, PERMITIR
-    console.log(`✅ [MIDDLEWARE] Permitindo acesso público: ${pathname}`);
+    // Se está em página pública, permitir
     return NextResponse.next();
   }
 
-  // ===== USUÁRIO AUTENTICADO =====
-  console.log(`✅ [MIDDLEWARE] Usuário autenticado:`, {
-    role: payload.role,
-    pathname
-  });
+  // Validar token
+  const { valid: isTokenValidResult, payload } = isTokenValid(token);
   
-  // ✅ SE USUÁRIO LOGADO TENTA ACESSAR LOGIN, REDIRECIONAR PARA DASHBOARD
+  // Se token é inválido
+  if (!isTokenValidResult || !payload) {
+    // Se está tentando acessar área protegida, redirecionar para login
+    if (!isPublicPath(pathname)) {
+      const loginUrl = new URL('/login', request.url);
+      if (pathname !== '/login') {
+        loginUrl.searchParams.set('redirect', pathname);
+      }
+      return NextResponse.redirect(loginUrl);
+    }
+    // Se está em página pública, permitir
+    return NextResponse.next();
+  }
+
+  // ===== USUÁRIO AUTENTICADO COM TOKEN VÁLIDO =====
+  
+  // Se usuário logado tenta acessar login, redirecionar para dashboard
   if (pathname === '/login') {
     const dashboardRoute = getDashboardRoute(payload.role);
-    return createRedirectResponse(request, dashboardRoute, 'usuário já logado');
+    return NextResponse.redirect(new URL(dashboardRoute, request.url));
   }
 
-  // ✅ SE USUÁRIO LOGADO TENTA ACESSAR OUTRAS PÁGINAS PÚBLICAS, REDIRECIONAR PARA DASHBOARD
+  // Se usuário logado tenta acessar outras páginas públicas, redirecionar para dashboard
   if (isPublicPath(pathname) && pathname !== '/login') {
     const dashboardRoute = getDashboardRoute(payload.role);
-    return createRedirectResponse(request, dashboardRoute, 'redirecionamento de página pública');
+    return NextResponse.redirect(new URL(dashboardRoute, request.url));
   }
 
-  // ✅ VERIFICAR PERMISSÃO PARA ROTA PROTEGIDA
+  // ===== VERIFICAÇÃO DE PERMISSÃO MAIS TOLERANTE =====
   if (!hasPermissionForRoute(payload.role, pathname)) {
-    console.log(`🚫 [MIDDLEWARE] Sem permissão para: ${pathname}`);
+    // Em vez de sempre redirecionar, dar uma chance para rotas similares
     const dashboardRoute = getDashboardRoute(payload.role);
-    return createRedirectResponse(request, dashboardRoute, 'sem permissão');
+    
+    // Se já está no dashboard correto, permitir (evita loop)
+    if (pathname === dashboardRoute || pathname.startsWith(dashboardRoute)) {
+      return NextResponse.next();
+    }
+    
+    // Senão, redirecionar para o dashboard apropriado
+    return NextResponse.redirect(new URL(dashboardRoute, request.url));
   }
 
-  // ✅ TUDO OK, PERMITIR ACESSO
-  console.log(`✅ [MIDDLEWARE] Acesso permitido: ${pathname}`);
-  
-  // ✅ ADICIONAR HEADERS DE CONTROLE (OPCIONAL)
+  // Tudo ok, permitir acesso
   const response = NextResponse.next();
   response.headers.set('x-user-role', payload.role);
-  response.headers.set('x-pathname', pathname);
   
   return response;
 }
@@ -214,14 +187,6 @@ export default function middleware(request: NextRequest) {
 // ===== CONFIGURAÇÃO DO MATCHER =====
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (images, etc.)
-     */
     '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js|woff2?|ttf|eot)$).*)',
   ],
 };

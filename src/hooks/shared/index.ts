@@ -1,3 +1,5 @@
+// src/hooks/shared/index.ts - VERSÃO OTIMIZADA SEM LOADING DESNECESSÁRIO
+
 import { useState, useEffect, useContext, useCallback } from 'react';
 import { AuthContext } from '@/contexts/AuthContext';
 import { getAPIClient, handleApiError } from '@/services/api';
@@ -15,36 +17,61 @@ interface UseSecretariaDataReturn {
   refetch: () => Promise<void>;
 }
 
+// Cache simples para evitar requisições desnecessárias
+const secretariaDataCache = new Map<string, { data: SecretariaData; timestamp: number }>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+
 export const useSecretariaData = (): UseSecretariaDataReturn => {
   const [secretariaData, setSecretariaData] = useState<SecretariaData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Começar com false
   const [error, setError] = useState<string | null>(null);
   const { user } = useContext(AuthContext);
 
-  const fetchSecretariaData = useCallback(async () => {
+  const fetchSecretariaData = useCallback(async (forceRefresh = false) => {
     if (!user?.id) {
       setError('ID da secretaria não encontrado');
-      setLoading(false);
       return;
     }
 
-    setLoading(true);
+    // Verificar cache primeiro
+    if (!forceRefresh) {
+      const cached = secretariaDataCache.get(user.id);
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        setSecretariaData(cached.data);
+        setError(null);
+        return;
+      }
+    }
+
+    // Só mostrar loading se for a primeira vez
+    if (!secretariaData) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
       const api = getAPIClient();
       const response = await api.get(`/secretaria/${user.id}`);
-      setSecretariaData(response.data);
+      
+      const data = response.data;
+      setSecretariaData(data);
+      
+      // Salvar no cache
+      secretariaDataCache.set(user.id, {
+        data,
+        timestamp: Date.now()
+      });
+      
     } catch (err: unknown) {
       const { message } = handleApiError(err, 'SecretariaData');
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, secretariaData]);
 
   const refetch = useCallback(async () => {
-    await fetchSecretariaData();
+    await fetchSecretariaData(true);
   }, [fetchSecretariaData]);
 
   useEffect(() => {

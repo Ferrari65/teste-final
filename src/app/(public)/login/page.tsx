@@ -8,6 +8,7 @@ import { loginSchema, type LoginFormData } from '@/schemas';
 import { useContext, useEffect } from 'react';
 import { AuthContext } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { WelcomeAnimation } from '@/components/ui/WelcomeAnimation';
 
 export default function LoginPage(): JSX.Element {
   const authContext = useContext(AuthContext);
@@ -17,7 +18,15 @@ export default function LoginPage(): JSX.Element {
     throw new Error('LoginPage deve ser usado dentro de um AuthProvider');
   }
 
-  const { signIn, isLoading, error, clearError, user, isInitialized } = authContext;
+  const { 
+    signIn, 
+    isLoading, 
+    error, 
+    clearError, 
+    user, 
+    isInitialized, 
+    showWelcome 
+  } = authContext;
 
   const {
     register,
@@ -28,8 +37,9 @@ export default function LoginPage(): JSX.Element {
     mode: 'onBlur',
   });
 
+  // Redirecionar se já estiver logado
   useEffect(() => {
-    if (isInitialized && user) {
+    if (isInitialized && user && !showWelcome) {
       const dashboardRoutes = {
         'ROLE_SECRETARIA': '/secretaria/alunos',
         'ROLE_PROFESSOR': '/professor/home',
@@ -39,21 +49,32 @@ export default function LoginPage(): JSX.Element {
       const redirectPath = dashboardRoutes[user.role as keyof typeof dashboardRoutes] || '/login';
       router.push(redirectPath);
     }
-  }, [isInitialized, user, router]);
+  }, [isInitialized, user, router, showWelcome]);
 
   const handleSignIn: SubmitHandler<LoginFormData> = async (data: LoginFormData): Promise<void> => {
     clearError(); 
     await signIn(data);
   };
 
-  if (!isInitialized || user) {
+  // Mostrar animação de boas-vindas
+  if (showWelcome && user) {
+    return (
+      <WelcomeAnimation 
+        userName={user.email} 
+        onComplete={() => {
+          // Será redirecionado automaticamente pelo useEffect do AuthContext
+        }}
+      />
+    );
+  }
+
+  // Loading inicial
+  if (!isInitialized) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-gray-600 text-lg">
-            {!isInitialized ? 'Carregando...' : 'Redirecionando...'}
-          </p>
+          <p className="mt-4 text-gray-600 text-lg">Carregando...</p>
         </div>
       </main>
     );

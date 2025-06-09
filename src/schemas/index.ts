@@ -1,5 +1,3 @@
-// src/schemas/index.ts - COM CAMPO maxAlunos ADICIONADO
-
 import { z } from 'zod';
 
 // ===== VALIDADORES BASE =====
@@ -66,12 +64,11 @@ export const nameValidator = z
   .max(100, 'Nome muito longo')
   .trim();
 
-// ===== ENUM PARA SITUAÇÃO =====
+// ===== ENUMS =====
 export const SituacaoTypeEnum = z.enum(['ATIVO', 'INATIVO'], {
   errorMap: () => ({ message: 'Situação deve ser ATIVO ou INATIVO' }),
 });
 
-// ===== ENUM PARA TURNO =====
 export const TurnoTypeEnum = z.enum(['DIURNO', 'NOTURNO'], {
   errorMap: () => ({ message: 'Turno deve ser DIURNO ou NOTURNO' }),
 });
@@ -170,7 +167,7 @@ export const cursoResponseSchema = z.object({
   id_secretaria: z.string(),
 });
 
-// 1. Schema do formulário (tela)
+// ===== SCHEMAS DE TURMA - CORRIGIDOS =====
 export const turmaFormSchema = z.object({
   nome: z.string()
     .min(1, 'Nome da turma é obrigatório')
@@ -184,14 +181,12 @@ export const turmaFormSchema = z.object({
   turno: TurnoTypeEnum,
 });
 
-// 2. DTO que vai para o backend
 export const turmaDTOSchema = z.object({
   nome: z.string(),
   ano: z.string(),
   turno: TurnoTypeEnum,
 });
 
-// 3. Response que vem do backend
 export const turmaResponseSchema = z.object({
   idTurma: z.string(),
   nome: z.string(),
@@ -207,7 +202,6 @@ export const turmaResponseSchema = z.object({
   })).optional().default([]),
 });
 
-
 // ===== TIPOS DERIVADOS =====
 export type LoginFormData = z.infer<typeof loginSchema>;
 export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
@@ -220,7 +214,6 @@ export type CursoEditarDTO = z.infer<typeof cursoEditarDTOSchema>;
 export type CursoResponse = z.infer<typeof cursoResponseSchema>;
 export type SituacaoType = z.infer<typeof SituacaoTypeEnum>;
 
-// ✅ TIPOS DE TURMA COM maxAlunos
 export type TurmaFormData = z.infer<typeof turmaFormSchema>;
 export type TurmaDTO = z.infer<typeof turmaDTOSchema>;
 export type TurmaResponse = z.infer<typeof turmaResponseSchema>;
@@ -229,10 +222,8 @@ export type TurnoType = z.infer<typeof TurnoTypeEnum>;
 // ===== FUNÇÕES DE VALIDAÇÃO =====
 export const validateLoginForm = (data: unknown) => loginSchema.safeParse(data);
 export const validateProfessorForm = (data: unknown) => professorFormSchema.safeParse(data);
-
 export const validateTurmaForm = (data: unknown) => turmaFormSchema.safeParse(data);
 export const validateTurmaDTO = (data: unknown) => turmaDTOSchema.safeParse(data);
-
 export const validateCursoForm = (data: unknown) => cursoFormSchema.safeParse(data);
 export const validateCursoDTO = (data: unknown) => cursoDTOSchema.safeParse(data);
 export const validateCursoEditarDTO = (data: unknown) => cursoEditarDTOSchema.safeParse(data);

@@ -6,14 +6,13 @@ import { useSecretariaData } from '@/hooks/shared';
 import UFEMSidebar from '@/components/secretaria/UFEMSidebar';
 import Header from '@/components/secretaria/header';
 import CadastroCurso from '@/components/secretaria/home/curso/CadastroCurso';
-import { LoadingSpinner } from '@/components/ui/loading/LoadingSpinner';
 
 export default function SecretariaCursoPage(): React.JSX.Element {
   const { user, signOut } = useContext(AuthContext);
-  const { secretariaData, loading } = useSecretariaData(); 
+  const { secretariaData } = useSecretariaData(); 
 
   const handleMenuClick = useCallback((itemId: string): void => {
-    console.log('Menu clicado:', itemId);
+    // Callback opcional para menu
   }, []);
 
   const handleSignOut = useCallback((): void => {
@@ -23,15 +22,12 @@ export default function SecretariaCursoPage(): React.JSX.Element {
   }, [signOut]);
 
   const handleCursoSuccess = useCallback(() => {
-    console.log('Curso cadastrado com sucesso!');
+    // Callback de sucesso
   }, []);
 
-  if (loading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
+  // Se não tem usuário, não renderizar
+  if (!user) {
+    return <div></div>;
   }
 
   return (

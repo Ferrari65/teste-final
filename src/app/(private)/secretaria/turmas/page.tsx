@@ -1,23 +1,19 @@
-// src/app/(private)/secretaria/turmas/page.tsx
-// PÁGINA PRINCIPAL DE TURMAS - CORRIGIDA
-
 'use client';
 
 import React, { useContext, useCallback } from 'react';
 import { AuthContext } from '@/contexts/AuthContext';
 import { useSecretariaData } from '@/hooks/shared';
 import UFEMSidebar from '@/components/secretaria/UFEMSidebar';
-import { LoadingSpinner } from '@/components/ui/loading/LoadingSpinner';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import Header from '@/components/secretaria/header';
 import CadastroTurma from '@/components/secretaria/home/turma/CadastroTurma';
 
 export default function SecretariaTurmasPage(): React.JSX.Element {
   const { user, signOut } = useContext(AuthContext);
-  const { secretariaData, loading, error } = useSecretariaData();
+  const { secretariaData, error } = useSecretariaData();
 
   const handleMenuClick = useCallback((itemId: string): void => {
-    console.log('Menu clicado:', itemId);
+    // Callback opcional para menu
   }, []);
 
   const handleSignOut = useCallback((): void => {
@@ -27,26 +23,12 @@ export default function SecretariaTurmasPage(): React.JSX.Element {
   }, [signOut]);
 
   const handleTurmaSuccess = useCallback(() => {
-    console.log('Turma cadastrada com sucesso!');
-    // Aqui você pode adicionar lógica após o sucesso
+    // Callback de sucesso
   }, []);
 
-  // Loading state
-  if (loading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-        <ErrorMessage message={error} />
-      </div>
-    );
+  // Se não tem usuário, não renderizar
+  if (!user) {
+    return <div></div>;
   }
 
   return (
@@ -67,7 +49,10 @@ export default function SecretariaTurmasPage(): React.JSX.Element {
             onSignOut={handleSignOut}
           />
 
-          {/* Componente de Cadastro de Turmas */}
+          {error && (
+            <ErrorMessage message={error} />
+          )}
+
           <CadastroTurma onSuccess={handleTurmaSuccess} />
           
         </div>

@@ -1,4 +1,3 @@
-// src/contexts/AuthContext.tsx - VERSÃO CORRIGIDA SEM ANY
 'use client';
 
 import { createContext, useState, ReactNode, useEffect, useCallback, useMemo } from 'react';
@@ -38,9 +37,10 @@ interface AuthContextData {
   clearError: () => void;
   isInitialized: boolean;
   refreshAuth: () => Promise<void>;
+  showWelcome: boolean;
+  setShowWelcome: (show: boolean) => void;
 }
 
-// ===== TIPOS AUXILIARES =====
 interface JWTPayload {
   sub?: string;
   email?: string;
@@ -62,7 +62,6 @@ const AUTH_CONFIG = {
   tokenLocalStorageKey: 'nextauth.token',
   secretariaIdKey: 'secretaria_id',
   maxAge: 604800,
-  refreshInterval: 300000, // 5 minutos para verificar token
 } as const;
 
 const LOGIN_ENDPOINTS = [
@@ -114,16 +113,13 @@ const TokenManager = {
       const isSecure = window.location.protocol === 'https:';
       
       document.cookie = `${AUTH_CONFIG.tokenCookieName}=${token}; path=/; expires=${expires}; SameSite=Lax${isSecure ? '; Secure' : ''}`;
-      
       localStorage.setItem(AUTH_CONFIG.tokenLocalStorageKey, token);
       
       if (secretariaId) {
         localStorage.setItem(AUTH_CONFIG.secretariaIdKey, secretariaId);
       }
-      
-      console.log('🔐 Token salvo com sucesso');
     } catch (error) {
-      console.error('❌ Erro ao salvar token:', getErrorMessage(error));
+      console.error('Erro ao salvar token:', getErrorMessage(error));
     }
   },
 
@@ -131,24 +127,19 @@ const TokenManager = {
     if (typeof window === 'undefined') return null;
     
     try {
-      // Priorizar cookie
       const cookieMatch = document.cookie.match(new RegExp(`${AUTH_CONFIG.tokenCookieName}=([^;]+)`));
       if (cookieMatch?.[1]) {
-        console.log('🔐 Token obtido do cookie');
         return cookieMatch[1];
       }
       
-      // Fallback para localStorage
       const localToken = localStorage.getItem(AUTH_CONFIG.tokenLocalStorageKey);
       if (localToken) {
-        console.log('🔐 Token obtido do localStorage');
         return localToken;
       }
       
-      console.log('🔐 Nenhum token encontrado');
       return null;
     } catch (error) {
-      console.error('❌ Erro ao obter token:', getErrorMessage(error));
+      console.error('Erro ao obter token:', getErrorMessage(error));
       return null;
     }
   },
@@ -160,9 +151,8 @@ const TokenManager = {
       document.cookie = `${AUTH_CONFIG.tokenCookieName}=; path=/; max-age=0`;
       localStorage.removeItem(AUTH_CONFIG.tokenLocalStorageKey);
       localStorage.removeItem(AUTH_CONFIG.secretariaIdKey);
-      console.log('🔐 Token removido');
     } catch (error) {
-      console.error('❌ Erro ao remover token:', getErrorMessage(error));
+      console.error('Erro ao remover token:', getErrorMessage(error));
     }
   },
 
@@ -181,15 +171,8 @@ const TokenManager = {
       const isExpired = payload.exp <= Date.now() / 1000;
       const hasRole = Boolean(payload.role);
       
-      console.log('🔐 Validação do token:', {
-        expired: isExpired,
-        hasRole,
-        expiresAt: new Date(payload.exp * 1000).toLocaleString()
-      });
-      
       return !isExpired && hasRole;
     } catch (error) {
-      console.error('❌ Token inválido:', getErrorMessage(error));
       return false;
     }
   }
@@ -201,12 +184,6 @@ const createError = (type: AuthError['type'], message: string, statusCode?: numb
 });
 
 const handleAxiosError = (error: AxiosError<ApiErrorResponse>): AuthError => {
-  console.error('🚫 Axios Error:', {
-    status: error.response?.status,
-    data: error.response?.data,
-    message: error.message
-  });
-
   if (error.response) {
     const status = error.response.status;
     const serverMessage = error.response.data?.message;
@@ -243,8 +220,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<AuthError | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
 
-  // ===== MEMOIZED FUNCTIONS =====
+  // ===== FUNCTIONS =====
   const clearError = useCallback(() => setError(null), []);
 
   const getRedirectPath = useCallback((role: string): string => {
@@ -254,7 +232,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const processToken = useCallback((token: string): User | null => {
     try {
       if (!TokenManager.isValid(token)) {
-        console.log('🔐 Token inválido ou expirado');
         return null;
       }
 
@@ -267,16 +244,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userId = payload.sub || '';
       }
 
-      const userData = {
+      return {
         email: payload.email || payload.sub || '',
         role: payload.role,
         id: userId
       };
-
-      console.log('✅ Token processado:', userData);
-      return userData;
     } catch (error) {
-      console.error('❌ Erro ao processar token:', getErrorMessage(error));
       return null;
     }
   }, []);
@@ -286,13 +259,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const token = TokenManager.get();
       
       if (!token) {
-        console.log('🔐 Nenhum token para refresh');
         setUser(null);
         return;
       }
 
       if (!TokenManager.isValid(token)) {
-        console.log('🔐 Token inválido no refresh');
         TokenManager.remove();
         setUser(null);
         if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
@@ -304,9 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData = processToken(token);
       if (userData) {
         setUser(userData);
-        console.log('✅ Auth refreshed');
       } else {
-        console.log('❌ Falha no refresh');
         TokenManager.remove();
         setUser(null);
         if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
@@ -314,7 +283,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch (error) {
-      console.error('❌ Erro no refresh:', getErrorMessage(error));
       TokenManager.remove();
       setUser(null);
     }
@@ -325,27 +293,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     for (const endpoint of LOGIN_ENDPOINTS) {
       try {
-        console.log(`🔄 Tentando login em: ${endpoint}`);
         const response = await api.post<LoginResponse>(endpoint, {
           email: credentials.email,
           senha: credentials.password
         });
         
-        console.log(`✅ Login bem-sucedido em: ${endpoint}`);
         return response;
       } catch (error: unknown) {
         if (isAxiosError(error)) {
           const axiosError = error as AxiosError<ApiErrorResponse>;
           errors.push(axiosError);
           
-          console.log(`❌ Falha em ${endpoint}:`, axiosError.response?.status);
-          
-          // Se é erro de credenciais, não tenta outros endpoints
           if (axiosError.response?.status === 401 || axiosError.response?.status === 400) {
             throw handleAxiosError(axiosError);
           }
-        } else {
-          console.error(`❌ Erro não-axios em ${endpoint}:`, getErrorMessage(error));
         }
       }
     }
@@ -358,7 +319,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      console.log('🔄 Iniciando login...');
       TokenManager.remove();
       
       const response = await attemptLogin(credentials);
@@ -376,13 +336,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       TokenManager.save(data.token, userData.role === 'ROLE_SECRETARIA' ? data.id : undefined);
       setUser({ ...userData, id: data.id });
       
-      const redirectPath = getRedirectPath(userData.role);
-      console.log(`✅ Login completo, redirecionando para: ${redirectPath}`);
-      router.push(redirectPath);
+      // Mostrar animação de boas-vindas
+      setShowWelcome(true);
+      
+      // Após 3 segundos, redirecionar
+      setTimeout(() => {
+        setShowWelcome(false);
+        const redirectPath = getRedirectPath(userData.role);
+        router.push(redirectPath);
+      }, 3000);
       
     } catch (error: unknown) {
-      console.error('❌ Erro no signIn:', error);
-      
       if (isAxiosError(error)) {
         setError(handleAxiosError(error as AxiosError<ApiErrorResponse>));
       } else if (error && typeof error === 'object' && 'type' in error) {
@@ -399,45 +363,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [attemptLogin, processToken, getRedirectPath, router]);
 
   const signOut = useCallback((): void => {
-    console.log('🔄 Fazendo logout...');
     setUser(null);
     setError(null);
+    setShowWelcome(false);
     TokenManager.remove();
     router.push('/login');
   }, [router]);
 
-  // ===== INITIALIZATION EFFECT =====
+  // ===== INITIALIZATION =====
   useEffect(() => {
     const initializeAuth = async (): Promise<void> => {
       try {
-        console.log('🔄 Inicializando autenticação...');
         await refreshAuth();
       } catch (error) {
-        console.error('❌ Erro na inicialização:', getErrorMessage(error));
         TokenManager.remove();
         setUser(null);
       } finally {
         setIsInitialized(true);
-        console.log('✅ Autenticação inicializada');
       }
     };
 
     initializeAuth();
   }, [refreshAuth]);
 
-  // ===== PERIODIC TOKEN CHECK =====
-  useEffect(() => {
-    if (!isInitialized || !user) return;
-
-    const interval = setInterval(() => {
-      console.log('🔄 Verificação periódica do token...');
-      refreshAuth();
-    }, AUTH_CONFIG.refreshInterval);
-
-    return () => clearInterval(interval);
-  }, [isInitialized, user, refreshAuth]);
-
-  // ===== MEMOIZED CONTEXT VALUE =====
+  // ===== CONTEXT VALUE =====
   const contextValue = useMemo((): AuthContextData => ({
     signIn,
     signOut,
@@ -446,8 +395,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     error,
     clearError,
     isInitialized,
-    refreshAuth
-  }), [signIn, signOut, isLoading, user, error, clearError, isInitialized, refreshAuth]);
+    refreshAuth,
+    showWelcome,
+    setShowWelcome
+  }), [signIn, signOut, isLoading, user, error, clearError, isInitialized, refreshAuth, showWelcome]);
 
   return (
     <AuthContext.Provider value={contextValue}>

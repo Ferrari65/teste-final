@@ -85,7 +85,6 @@ const UFEMSidebar: React.FC<SidebarProps> = ({
     const menuItem = MENU_ITEMS.find(item => item.id === itemId);
     
     if (!menuItem) {
-      console.warn(`Item de menu não encontrado: ${itemId}`);
       return;
     }
 
@@ -93,6 +92,7 @@ const UFEMSidebar: React.FC<SidebarProps> = ({
 
     setActiveItemId(itemId);
     
+    // Navegação instantânea sem loading
     router.push(menuItem.path);
 
     onMenuItemClick?.(itemId);

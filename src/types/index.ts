@@ -1,4 +1,4 @@
-
+// src/types/index.ts - VERSÃO LIMPA
 
 // ===== INTERFACES PRINCIPAIS =====
 export interface User {
@@ -7,14 +7,13 @@ export interface User {
   role: string;
 }
 
-//  secretaria
 export interface SecretariaData {
   nome: string;
   email: string;
   id_secretaria: string;
 }
 
-// =====  UI =====
+// ===== INTERFACES UI =====
 export interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string;
@@ -39,7 +38,7 @@ export interface LoadingSpinnerProps {
   className?: string;
 }
 
-// =====  COMPONENTS =====
+// ===== INTERFACES DE COMPONENTES =====
 export interface HeaderProps {
   title?: string;
   subtitle?: string;
@@ -80,11 +79,12 @@ export interface UseSecretariaDataReturn {
   refetch: () => Promise<void>;
 }
 
-// ===== UTILITY TYPES =====
+// ===== TIPOS AUXILIARES =====
 export type Role = 'ROLE_SECRETARIA' | 'ROLE_PROFESSOR' | 'ROLE_ALUNO';
 export type Status = 'ATIVO' | 'INATIVO';
 export type Sexo = 'M' | 'F';
 
+// ===== RE-EXPORTS DOS SCHEMAS =====
 export type { 
   ProfessorFormData, 
   ProfessorDTO, 
@@ -92,5 +92,10 @@ export type {
   CursoDTO, 
   CursoResponse,
   LoginFormData,
-  ResetPasswordFormData
+  ResetPasswordFormData,
+  TurmaFormData,
+  TurmaDTO,
+  TurmaResponse,
+  SituacaoType,
+  TurnoType
 } from '@/schemas';
